@@ -119,6 +119,8 @@ class TestToPostman(unittest.TestCase):
         self.assertEqual(variables["baseUrl"]["value"], "https://api.vk.ru")
         self.assertEqual(variables["apiVersion"]["value"], "5.199")
         self.assertEqual(variables["accessToken"]["value"], "")
+        self.assertEqual(variables["accessToken"]["type"], "secret")
+        self.assertNotIn("type", variables["baseUrl"])
 
     def test_folder_mapping(self):
         folder = first_folder(g.to_postman(COLLECTION))
@@ -160,6 +162,9 @@ class TestToPostman(unittest.TestCase):
         self.assertEqual(values["accessToken"]["value"], "")
         self.assertTrue(values["accessToken"]["enabled"])
         self.assertNotIn("description", values["accessToken"])
+        self.assertEqual(values["accessToken"]["type"], "secret")
+        self.assertEqual(values["groupToken"]["type"], "secret")
+        self.assertNotIn("type", values["baseUrl"])
 
     def test_dump_postman_json(self):
         text = g.dump_postman(COLLECTION)

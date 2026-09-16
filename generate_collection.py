@@ -616,7 +616,7 @@ def to_postman(collection):
             if var.get("name") == "accessToken":
                 token = var
                 break
-    token_entry = {"key": "accessToken", "value": ""}
+    token_entry = {"key": "accessToken", "value": "", "type": "secret"}
     if token.get("description"):
         token_entry["description"] = token["description"]
     variables.append(token_entry)
@@ -639,7 +639,8 @@ def to_postman_environment(env):
     return {
         "name": env["name"],
         "values": [
-            {"key": var["name"], "value": var.get("value", ""), "enabled": True} for var in env.get("variables", [])
+            {"key": var["name"], "value": var.get("value", ""), "enabled": True, **({"type": "secret"} if var.get("secret") else {})}
+            for var in env.get("variables", [])
         ],
         "_postman_variable_scope": "environment",
     }

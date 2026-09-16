@@ -46,6 +46,15 @@ def jsonschema_validator(schema):
     return validator_for(schema)(schema)
 
 
+def allow_postman_secret_type(schema):
+    variable = schema.get("definitions", {}).get("variable") or schema.get("$defs", {}).get("variable")
+    if variable:
+        enum = variable.get("properties", {}).get("type", {}).get("enum")
+        if enum and "secret" not in enum:
+            enum.append("secret")
+    return schema
+
+
 def validate_bundled(doc_path, schema):
     doc = load_document(doc_path)
     jsonschema_validator(schema).validate(doc)
@@ -125,7 +134,7 @@ def main():
         paths, schemas = validate_openapi(args.path, schema)
         print(f"OK: openapi 3.1, {paths} paths, {schemas} schemas, 0 schema violations")
     elif fmt == "postman-collection":
-        schema = load_schema(None, POSTMAN_COLLECTION_SCHEMA_URL)
+        schema = allow_postman_secret_type(load_schema(None, POSTMAN_COLLECTION_SCHEMA_URL))
         folders, requests = validate_postman_collection(args.path, schema)
         print(f"OK: postman collection, {folders} folders, {requests} requests, 0 schema violations")
     elif fmt == "postman-environment":
