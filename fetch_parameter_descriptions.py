@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from generate_opencollection import collect_methods
+from generate_collection import collect_methods
 
 API_URL = "https://api.vk.ru/method/documentation.getPage"
 ANON_TOKEN_URL = "https://dev.vk.ru/getAnonymousToken"
@@ -63,7 +63,7 @@ def main():
     parser.add_argument("--all", action="store_true", help="fetch all methods including nodoc/hidden (default: public only)")
     args = parser.parse_args()
     if args.schema_dir is None:
-        from generate_opencollection import default_schema_dir
+        from generate_collection import default_schema_dir
 
         args.schema_dir = default_schema_dir()
 
