@@ -1,4 +1,5 @@
 import json
+import pathlib
 import unittest
 import uuid
 
@@ -163,6 +164,22 @@ class TestToPostman(unittest.TestCase):
         text = g.dump_postman(COLLECTION)
         doc = json.loads(text)
         self.assertEqual(doc["info"]["name"], "VK API")
+
+
+class TestDefaultOutPath(unittest.TestCase):
+    def test_tree(self):
+        self.assertEqual(g.default_out_path("tree"), pathlib.Path("dist/opencollection/vk-api"))
+
+    def test_bundled(self):
+        self.assertEqual(g.default_out_path("bundled"), pathlib.Path("dist/opencollection/vk-api.yaml"))
+
+    def test_postman(self):
+        out = g.default_out_path("postman")
+        self.assertEqual(out, pathlib.Path("dist/postman/vk-api.postman_collection.json"))
+        self.assertEqual(
+            g.postman_environment_path(out),
+            pathlib.Path("dist/postman/vk-api.postman_environment.json"),
+        )
 
 
 if __name__ == "__main__":

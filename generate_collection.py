@@ -679,6 +679,15 @@ def is_public(method):
     return method.get("nodoc") is not True and (method.get("meta") or {}).get("hidden") is not True
 
 
+def default_out_path(fmt):
+    default = {
+        "tree": "dist/opencollection/vk-api",
+        "bundled": "dist/opencollection/vk-api.yaml",
+        "postman": "dist/postman/vk-api.postman_collection.json",
+    }
+    return pathlib.Path(default[fmt])
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate OpenCollection collection from vk-api-schema")
     parser.add_argument("--schema-dir", default=None, type=pathlib.Path)
@@ -693,12 +702,7 @@ def main():
     if args.schema_dir is None:
         args.schema_dir = default_schema_dir()
     if args.out is None:
-        default = {
-            "tree": "dist/vk-api",
-            "bundled": "dist/vk-api.yaml",
-            "postman": "dist/vk-api.postman_collection.json",
-        }
-        args.out = pathlib.Path(default[args.format])
+        args.out = default_out_path(args.format)
 
     collection, stats = build(args.schema_dir, resolve_api_version(args.api_version), args.name, args.descriptions, args.all)
     env_paths = []

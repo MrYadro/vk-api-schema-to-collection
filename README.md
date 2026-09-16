@@ -16,14 +16,22 @@
 git clone https://github.com/VKCOM/vk-api-schema ~/Dev/vk-api-schema
 
 python3 fetch_parameter_descriptions.py   # обновить кэш русских описаний (анонимный токен dev.vk.ru)
-python3 generate_collection.py            # dist/vk-api (tree-формат Bruno)
-python3 generate_collection.py --format bundled --out vk-api.yaml
+python3 generate_collection.py            # dist/opencollection/vk-api (tree-формат)
+python3 generate_collection.py --format bundled
 python3 generate_collection.py --format postman
 ```
 
-В Bruno: File → Open Collection → выбрать папку `dist/vk-api`.
-В Postman: Import → File → `dist/vk-api.postman_collection.json`, затем импортировать окружение
-`dist/vk-api.postman_environment.json` и вписать токен в `accessToken`.
+Дефолтный вывод — по папкам форматов в `dist/`:
+
+```
+dist/
+├── opencollection/    # tree (Bruno: File → Open Collection) и bundled YAML
+└── postman/           # коллекция v2.1 + окружение api.vk.ru
+```
+
+В Bruno: File → Open Collection → выбрать папку `dist/opencollection/vk-api`.
+В Postman: Import → File → `dist/postman/vk-api.postman_collection.json`, затем импортировать окружение
+`dist/postman/vk-api.postman_environment.json` и вписать токен в `accessToken`.
 Токен вписать в секретную переменную `accessToken` окружения `api.vk.ru`;
 `baseUrl` и `apiVersion` работают без выбора окружения (collection-level переменные).
 
