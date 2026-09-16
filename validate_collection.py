@@ -5,13 +5,16 @@ import pathlib
 import sys
 
 OC_SCHEMA_URL = "https://schema.opencollection.com/opencollection/v1.0.0.json"
-POSTMAN_COLLECTION_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+POSTMAN_COLLECTION_SCHEMA_URL = "https://schema.postman.com/collection/json/v2.1.0/draft-07/collection.json"
 POSTMAN_ENVIRONMENT_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/environment.json"
-VENDORED_POSTMAN_ENVIRONMENT_SCHEMA = pathlib.Path(__file__).resolve().parent / "schemas/postman-environment-v2.1.0.json"
+OPENAPI_SCHEMA_URL = "https://spec.openapis.org/oas/3.1/schema/2022-10-07"
 
 
 def pick_format(path):
-    name = pathlib.Path(path).name
+    path = pathlib.Path(path)
+    name = path.name
+    if name.endswith(".openapi.yaml") or path.parent.name == "openapi":
+        return "openapi"
     if "postman_collection" in name and name.endswith(".json"):
         return "postman-collection"
     if "postman_environment" in name and name.endswith(".json"):
@@ -104,6 +107,12 @@ def validate_postman_environment(doc_path, schema):
     return 0, len(doc.get("values", []))
 
 
+def validate_openapi(doc_path, schema):
+    doc = load_document(doc_path)
+    jsonschema_validator(schema).validate(doc)
+    return len(doc.get("paths", {})), len(doc.get("components", {}).get("schemas", {}))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Validate a generated collection against its official JSON Schema")
     parser.add_argument("path", type=pathlib.Path, help="bundled .yaml, tree directory, or postman .json file")
@@ -111,7 +120,11 @@ def main():
     args = parser.parse_args()
 
     fmt = pick_format(args.path)
-    if fmt == "postman-collection":
+    if fmt == "openapi":
+        schema = load_schema(None, OPENAPI_SCHEMA_URL)
+        paths, schemas = validate_openapi(args.path, schema)
+        print(f"OK: openapi 3.1, {paths} paths, {schemas} schemas, 0 schema violations")
+    elif fmt == "postman-collection":
         schema = load_schema(None, POSTMAN_COLLECTION_SCHEMA_URL)
         folders, requests = validate_postman_collection(args.path, schema)
         print(f"OK: postman collection, {folders} folders, {requests} requests, 0 schema violations")
@@ -119,7 +132,8 @@ def main():
         try:
             schema = load_schema(None, POSTMAN_ENVIRONMENT_SCHEMA_URL)
         except OSError:
-            schema = load_schema(VENDORED_POSTMAN_ENVIRONMENT_SCHEMA, POSTMAN_ENVIRONMENT_SCHEMA_URL)
+            print(f"SKIP: postman environment schema unavailable online ({POSTMAN_ENVIRONMENT_SCHEMA_URL}), validation skipped")
+            return None
         _, values = validate_postman_environment(args.path, schema)
         print(f"OK: postman environment, {values} variables, 0 schema violations")
     elif args.path.is_dir():

@@ -1,5 +1,6 @@
 import json
 import pathlib
+import tempfile
 import unittest
 import uuid
 
@@ -180,6 +181,173 @@ class TestDefaultOutPath(unittest.TestCase):
             g.postman_environment_path(out),
             pathlib.Path("dist/postman/vk-api.postman_environment.json"),
         )
+
+
+MINI_SCHEMA = {
+    "users/methods.json": {
+        "methods": [
+            {
+                "name": "users.get",
+                "description": "Returns users.",
+                "parameters": [
+                    {
+                        "name": "user_ids",
+                        "description": "User IDs.",
+                        "type": "array",
+                        "items": {"$ref": "objects.json#/definitions/user_id"},
+                        "maxItems": 1000,
+                        "required": True,
+                        "entity": "profiles",
+                    },
+                    {"name": "name_case", "type": "string", "$ref": "objects.json#/definitions/name_case"},
+                    {"name": "secret", "type": "string", "description": "hidden param"},
+                ],
+                "responses": {"response": {"$ref": "responses.json#/definitions/users_get_response"}},
+            },
+            {"name": "users.secretMethod", "description": "Hidden.", "nodoc": True},
+        ]
+    },
+    "users/objects.json": {
+        "definitions": {
+            "user_id": {"type": ["integer", "string"]},
+            "name_case": {"enum": ["nom", "gen"], "nodocEnum": ["gen"]},
+        }
+    },
+    "users/responses.json": {
+        "definitions": {
+            "users_get_response": {
+                "type": "object",
+                "properties": {"response": {"type": "array", "items": {"$ref": "objects.json#/definitions/user_id"}}},
+            }
+        }
+    },
+    "wall/methods.json": {
+        "methods": [
+            {
+                "name": "wall.post",
+                "description": "Creates a post on the wall.",
+                "parameters": [{"name": "message", "type": "string", "required": True}],
+            }
+        ]
+    },
+}
+
+MINI_DESCRIPTIONS = {
+    "users.get": {"description": "Возвращает пользователей.", "params": {"user_ids": "ID пользователей."}}
+}
+
+
+class TestBuildOpenapi(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        root = pathlib.Path(cls.tmp.name)
+        for rel, doc in MINI_SCHEMA.items():
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(doc), encoding="utf-8")
+        cls.desc_path = root / "descriptions.json"
+        cls.desc_path.write_text(json.dumps(MINI_DESCRIPTIONS), encoding="utf-8")
+        cls.doc, cls.stats = g.build_openapi(root, "5.199", "VK API", cls.desc_path, False)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_root(self):
+        self.assertEqual(self.doc["openapi"], "3.1.0")
+        self.assertEqual(self.doc["info"]["title"], "VK API")
+        self.assertEqual(self.doc["info"]["version"], "5.199")
+        self.assertEqual(self.doc["servers"][0]["url"], "https://api.vk.ru")
+        self.assertEqual(self.doc["security"], [{"bearerAuth": []}])
+        self.assertEqual(
+            self.doc["components"]["securitySchemes"]["bearerAuth"],
+            {"type": "http", "scheme": "bearer", "bearerFormat": "access_token"},
+        )
+        self.assertIn("VK API", self.doc["info"]["description"])
+
+    def test_tags_are_sorted_categories(self):
+        self.assertEqual([t["name"] for t in self.doc["tags"]], ["Users", "Wall"])
+
+    def test_private_methods_excluded(self):
+        self.assertNotIn("/method/users.secretMethod", self.doc["paths"])
+        self.assertEqual(set(self.doc["paths"]), {"/method/users.get", "/method/wall.post"})
+
+    def test_operation_fields(self):
+        op = self.doc["paths"]["/method/users.get"]["post"]
+        self.assertEqual(op["operationId"], "users.get")
+        self.assertEqual(op["tags"], ["Users"])
+        self.assertEqual(op["summary"], "Возвращает пользователей.")
+        self.assertEqual(op["description"], "Возвращает пользователей.")
+        self.assertEqual(op["security"], [{"bearerAuth": []}])
+        self.assertIn("requestBody", op)
+        self.assertIn("200", op["responses"])
+
+    def test_request_body_schema(self):
+        op = self.doc["paths"]["/method/users.get"]["post"]
+        schema = op["requestBody"]["content"]["application/x-www-form-urlencoded"]["schema"]
+        self.assertEqual(
+            schema["properties"]["user_ids"],
+            {
+                "type": "array",
+                "description": "ID пользователей.",
+                "items": {"$ref": "#/components/schemas/users.user_id"},
+                "maxItems": 1000,
+            },
+        )
+        name_case = schema["properties"]["name_case"]
+        self.assertEqual(name_case["type"], "string")
+        self.assertEqual(name_case["$ref"], "#/components/schemas/users.name_case")
+        self.assertIn("v", schema["properties"])
+        self.assertEqual(schema["properties"]["v"]["default"], "5.199")
+        self.assertEqual(schema["required"], ["user_ids", "v"])
+
+    def test_components_with_namespaced_refs(self):
+        schemas = self.doc["components"]["schemas"]
+        self.assertEqual(schemas["users.user_id"], {"type": ["integer", "string"]})
+        self.assertEqual(schemas["users.name_case"], {"enum": ["nom"]})
+        response = schemas["users.users_get_response"]
+        self.assertEqual(
+            response["properties"]["response"]["items"],
+            {"$ref": "#/components/schemas/users.user_id"},
+        )
+
+    def test_vk_error_component(self):
+        error = self.doc["components"]["schemas"]["VkError"]
+        self.assertEqual(error["properties"]["error"]["required"], ["error_code", "error_msg"])
+        resp = self.doc["paths"]["/method/users.get"]["post"]["responses"]["200"]
+        refs = [s["$ref"] for s in resp["content"]["application/json"]["schema"]["oneOf"]]
+        self.assertIn("#/components/schemas/users.users_get_response", refs)
+        self.assertIn("#/components/schemas/VkError", refs)
+
+    def test_method_without_responses(self):
+        op = self.doc["paths"]["/method/wall.post"]["post"]
+        self.assertIn("200", op["responses"])
+        self.assertEqual(op["requestBody"]["content"]["application/x-www-form-urlencoded"]["schema"]["required"], ["message", "v"])
+
+    def test_no_vk_vendor_keys_in_schemas(self):
+        dumped = json.dumps(self.doc)
+        self.assertNotIn("nodocEnum", dumped)
+        self.assertNotIn('"entity"', dumped)
+
+    def test_stats(self):
+        self.assertEqual(self.stats["operations"], 2)
+        self.assertEqual(self.stats["schemas"] >= 4, True)
+
+
+    def test_openapi(self):
+        self.assertEqual(g.default_out_path("openapi"), pathlib.Path("dist/openapi/vk-api.yaml"))
+
+
+class TestYamlEmit(unittest.TestCase):
+    def test_numeric_keys_quoted(self):
+        out = g.to_yaml({"200": "ok"})
+        self.assertIn('"200":', out)
+        self.assertIn("ok", out)
+
+    def test_numeric_string_values_quoted(self):
+        out = g.to_yaml({"code": "200"})
+        self.assertIn('"200"', out)
 
 
 if __name__ == "__main__":

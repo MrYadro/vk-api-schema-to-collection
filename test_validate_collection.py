@@ -18,5 +18,10 @@ class TestPickFormat(unittest.TestCase):
         self.assertEqual(v.pick_format(pathlib.Path("vk-api")), "opencollection")
 
 
+    def test_openapi_yaml(self):
+        self.assertEqual(v.pick_format(pathlib.Path("vk-api.openapi.yaml")), "openapi")
+        self.assertEqual(v.pick_format(pathlib.Path("dist/openapi/vk-api.yaml")), "openapi")
+
+
 if __name__ == "__main__":
     unittest.main()
