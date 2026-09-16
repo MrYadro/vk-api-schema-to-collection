@@ -157,6 +157,7 @@ class TestToPostman(unittest.TestCase):
         env = g.to_postman_environment(COLLECTION["config"]["environments"][0])
         self.assertEqual(env["name"], "api.vk.ru")
         self.assertEqual(env["_postman_variable_scope"], "environment")
+        self.assertIsInstance(env["color"], int)
         values = {v["key"]: v for v in env["values"]}
         self.assertEqual(values["baseUrl"]["value"], "https://api.vk.ru")
         self.assertEqual(values["accessToken"]["value"], "")

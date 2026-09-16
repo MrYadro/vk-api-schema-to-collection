@@ -635,6 +635,9 @@ def to_postman(collection):
     }
 
 
+POSTMAN_ENVIRONMENT_COLOR = 131  # числовой индекс палитры Postman (не документирован; из реального экспорта)
+
+
 def to_postman_environment(env):
     return {
         "name": env["name"],
@@ -642,6 +645,7 @@ def to_postman_environment(env):
             {"key": var["name"], "value": var.get("value", ""), "enabled": True, **({"type": "secret"} if var.get("secret") else {})}
             for var in env.get("variables", [])
         ],
+        "color": POSTMAN_ENVIRONMENT_COLOR,
         "_postman_variable_scope": "environment",
     }
 
