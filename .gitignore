@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+.vk_token
+token*
+bruno-collection/
+data/
+vk-api/
+*.opencollection.yaml
+*.opencollection.zip

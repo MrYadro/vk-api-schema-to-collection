@@ -1,0 +1,101 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_version:
+        description: "API version (empty = latest from dev portal)"
+        required: false
+        default: ""
+      force:
+        description: "Re-publish release even if tag exists"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Detect API version
+        id: version
+        run: |
+          if [ -n "${{ inputs.api_version }}" ]; then
+            VERSION="${{ inputs.api_version }}"
+          else
+            VERSION=$(python3 -c "import generate_opencollection as g; print(g.get_latest_api_version())")
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VK API version: $VERSION"
+
+      - name: Skip if release exists
+        id: existing
+        if: ${{ !inputs.force }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/releases/tags/v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v${{ steps.version.outputs.version }} already exists, skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch RU descriptions
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        continue-on-error: true
+        run: |
+          git clone --depth 1 https://github.com/VKCOM/vk-api-schema /tmp/vk-api-schema
+          python3 fetch_parameter_descriptions.py --schema-dir /tmp/vk-api-schema --rps 6
+
+      - name: Generate bundled collection
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        run: |
+          python3 generate_opencollection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format bundled \
+            --out "vk-api-${{ steps.version.outputs.version }}.opencollection.yaml"
+
+      - name: Generate tree collection
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        run: |
+          python3 generate_opencollection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format tree \
+            --out vk-api
+          zip -qr "vk-api-${{ steps.version.outputs.version }}.opencollection.zip" vk-api
+
+      - name: Validate
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        run: |
+          pip install --quiet pyyaml jsonschema
+          python3 validate_opencollection.py "vk-api-${{ steps.version.outputs.version }}.opencollection.yaml"
+          python3 validate_opencollection.py vk-api
+
+      - name: Create release
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "VK API ${{ steps.version.outputs.version }}"
+          body: |
+            OpenCollection for VK API, generated from [VKCOM/vk-api-schema](https://github.com/VKCOM/vk-api-schema) for API version **${{ steps.version.outputs.version }}**.
+
+            - `vk-api-${{ steps.version.outputs.version }}.opencollection.zip` — Bruno tree format: unpack and *File → Open Collection*
+            - `vk-api-${{ steps.version.outputs.version }}.opencollection.yaml` — bundled single file
+
+            Auth: collection-level Bearer `{{accessToken}}` (secret in the `api.vk.ru` environment); `baseUrl`/`apiVersion` are collection variables.
+          files: |
+            vk-api-${{ steps.version.outputs.version }}.opencollection.yaml
+            vk-api-${{ steps.version.outputs.version }}.opencollection.zip
