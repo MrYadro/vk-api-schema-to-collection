@@ -356,5 +356,88 @@ class TestYamlEmit(unittest.TestCase):
         self.assertIn('"200"', out)
 
 
+    def test_multiline_string_block_scalar(self):
+        out = g.to_yaml({"description": "line1\nline2"})
+        self.assertIn("description: |-\n", out)
+        self.assertIn("  line1\n", out)
+        self.assertIn("  line2\n", out)
+
+    def test_multiline_leading_space_falls_back_to_quoted(self):
+        out = g.to_yaml({"description": " first line\nsecond"})
+        self.assertIn('description: " first line\\nsecond"', out)
+
+    def test_singleline_string_stays_quoted(self):
+        out = g.to_yaml({"a": "simple"})
+        self.assertIn("a: simple", out)
+
+
+class TestToPostmanV3(unittest.TestCase):
+    def test_collection_definition(self):
+        doc = g.postman_v3_definition(COLLECTION)
+        self.assertEqual(doc["$kind"], "collection")
+        self.assertEqual(doc["description"], "# VK API\n\nКоллекция методов VK API.")
+        self.assertEqual(doc["variables"], {"baseUrl": "https://api.vk.ru", "apiVersion": "5.199", "accessToken": ""})
+        script = doc["scripts"][0]
+        self.assertEqual(script["type"], "http:afterResponse")
+        self.assertEqual(script["language"], "text/javascript")
+        self.assertIn("pm.response.json()", script["code"])
+        auth = doc["auth"][0]
+        self.assertEqual(auth["type"], "bearer")
+        self.assertEqual(auth["credentials"], {"token": "{{accessToken}}"})
+        uuid.UUID(auth["id"])
+
+    def test_folder_definition(self):
+        folder = COLLECTION["items"][0]
+        doc = g.postman_v3_folder_definition(folder)
+        self.assertEqual(doc["$kind"], "collection")
+        self.assertEqual(doc["description"], "# Users\n\n1 метод(ов) VK API.")
+        self.assertEqual(doc["order"], 2000)
+
+    def test_request(self):
+        req = COLLECTION["items"][0]["items"][0]
+        doc = g.postman_v3_request(req)
+        self.assertEqual(doc["$kind"], "http-request")
+        self.assertEqual(doc["url"], "{{baseUrl}}/method/users.get")
+        self.assertEqual(doc["method"], "POST")
+        self.assertEqual(doc["description"], "# users.get\n\n## Параметры\n\n| Параметр |\n|---|")
+        self.assertEqual(doc["order"], 1000)
+        rows = doc["body"]["content"]
+        self.assertEqual(doc["body"]["type"], "urlencoded")
+        self.assertEqual(rows[0], {"key": "user_ids", "value": "", "description": "ID пользователей"})
+        self.assertEqual(rows[1], {"key": "fields", "value": "bdate", "disabled": True})
+        self.assertEqual(rows[-1], {"key": "v", "value": "{{apiVersion}}"})
+
+    def test_environment(self):
+        doc = g.postman_v3_environment(COLLECTION["config"]["environments"][0])
+        self.assertEqual(doc["name"], "api.vk.ru")
+        self.assertEqual(doc["color"], g.POSTMAN_ENVIRONMENT_COLOR)
+        self.assertEqual(doc["values"][0], {"key": "baseUrl", "value": "https://api.vk.ru"})
+        self.assertEqual(
+            doc["values"][2],
+            {"key": "accessToken", "value": "", "description": "Токен пользователя"},
+        )
+
+
+class TestWritePostmanV3(unittest.TestCase):
+    def test_writes_tree(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            files = g.write_postman_v3(COLLECTION, out)
+            root = out / "postman"
+            self.assertTrue((root / "collections/VK API/.resources/definition.yaml").is_file())
+            self.assertTrue((root / "collections/VK API/Users/.resources/definition.yaml").is_file())
+            self.assertTrue((root / "collections/VK API/Users/users.get.request.yaml").is_file())
+            self.assertTrue((root / "environments/api.vk.ru.environment.yaml").is_file())
+            req_text = (root / "collections/VK API/Users/users.get.request.yaml").read_text(encoding="utf-8")
+            self.assertIn("$kind: http-request", req_text)
+            self.assertIn("order: 1000", req_text)
+            self.assertEqual(files, 4)
+
+    def test_default_out(self):
+        self.assertEqual(g.default_out_path("postman-v3"), pathlib.Path("dist/postman/vk-api-local"))
+
+
 if __name__ == "__main__":
     unittest.main()

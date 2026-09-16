@@ -84,6 +84,15 @@ jobs:
             --format postman \
             --out "vk-api-${{ steps.version.outputs.version }}.postman_collection.json"
 
+      - name: Generate Postman v3 local tree
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        run: |
+          python3 generate_collection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format postman-v3 \
+            --out vk-api-local
+
       - name: Generate OpenAPI spec
         if: ${{ steps.existing.outputs.exists != 'true' }}
         run: |
@@ -102,6 +111,7 @@ jobs:
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.postman_collection.json"
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.postman_environment.json"
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.openapi.yaml"
+          python3 validate_collection.py vk-api-local
 
       - name: Package artifacts
         if: ${{ steps.existing.outputs.exists != 'true' }}
@@ -111,6 +121,7 @@ jobs:
           zip -q "vk-api-${V}.opencollection.zip" "vk-api-${V}.opencollection.yaml"
           zip -q "vk-api-${V}.postman.zip" "vk-api-${V}.postman_collection.json" "vk-api-${V}.postman_environment.json"
           zip -q "vk-api-${V}.openapi.zip" "vk-api-${V}.openapi.yaml"
+          (cd vk-api-local && zip -qr "../vk-api-${V}.postman-v3.zip" postman)
           unzip -l "vk-api-${V}.opencollection.zip" | head -5
 
       - name: Create release
@@ -124,10 +135,12 @@ jobs:
 
             - `vk-api-${{ steps.version.outputs.version }}.opencollection.zip` — OpenCollection: tree (Bruno: *File → Open Collection*) + bundled YAML
             - `vk-api-${{ steps.version.outputs.version }}.postman.zip` — Postman: коллекция v2.1 + окружение `api.vk.ru` (токены)
+            - `vk-api-${{ steps.version.outputs.version }}.postman-v3.zip` — Postman Native Git: дерево Collection V3 YAML (Files → Open folder)
             - `vk-api-${{ steps.version.outputs.version }}.openapi.zip` — OpenAPI 3.1 (Swagger UI / codegen / Postman import)
 
             Auth: collection-level Bearer `{{accessToken}}`; `baseUrl`/`apiVersion` are collection variables.
           files: |
             vk-api-${{ steps.version.outputs.version }}.opencollection.zip
             vk-api-${{ steps.version.outputs.version }}.postman.zip
+            vk-api-${{ steps.version.outputs.version }}.postman-v3.zip
             vk-api-${{ steps.version.outputs.version }}.openapi.zip

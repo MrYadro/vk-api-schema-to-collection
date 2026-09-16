@@ -19,6 +19,8 @@ def pick_format(path):
         return "postman-collection"
     if "postman_environment" in name and name.endswith(".json"):
         return "postman-environment"
+    if path.is_dir() and (path / "postman" / "collections").is_dir():
+        return "postman-v3"
     return "opencollection"
 
 
@@ -122,6 +124,40 @@ def validate_openapi(doc_path, schema):
     return len(doc.get("paths", {})), len(doc.get("components", {}).get("schemas", {}))
 
 
+def validate_postman_v3(root_dir):
+    import yaml
+
+    root_dir = pathlib.Path(root_dir)
+    folders = requests = 0
+    collections_dir = root_dir / "postman" / "collections"
+    for collection_dir in collections_dir.iterdir():
+        if not collection_dir.is_dir():
+            continue
+        definition_path = collection_dir / ".resources" / "definition.yaml"
+        definition = yaml.safe_load(definition_path.read_text(encoding="utf-8"))
+        if definition.get("$kind") != "collection":
+            raise ValueError(f"unexpected $kind in {definition_path}")
+        for path in collection_dir.rglob("*.yaml"):
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+            kind = doc.get("$kind") if isinstance(doc, dict) else None
+            if path.name == "definition.yaml":
+                if kind != "collection":
+                    raise ValueError(f"unexpected $kind in {path}")
+                if path.parent.parent != collection_dir:
+                    folders += 1
+            elif path.name.endswith(".request.yaml"):
+                if kind != "http-request":
+                    raise ValueError(f"unexpected $kind in {path}")
+                if not isinstance(doc.get("url"), str) or not isinstance(doc.get("method"), str):
+                    raise ValueError(f"missing url/method in {path}")
+                requests += 1
+    for env_file in (root_dir / "postman" / "environments").glob("*.yaml"):
+        env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
+        if not env.get("name") or not isinstance(env.get("values"), list):
+            raise ValueError(f"malformed environment {env_file}")
+    return folders, requests
+
+
 def main():
     parser = argparse.ArgumentParser(description="Validate a generated collection against its official JSON Schema")
     parser.add_argument("path", type=pathlib.Path, help="bundled .yaml, tree directory, or postman .json file")
@@ -129,7 +165,10 @@ def main():
     args = parser.parse_args()
 
     fmt = pick_format(args.path)
-    if fmt == "openapi":
+    if fmt == "postman-v3":
+        folders, requests = validate_postman_v3(args.path)
+        print(f"OK: postman v3 local, {folders} folders, {requests} requests, 0 structural violations")
+    elif fmt == "openapi":
         schema = load_schema(None, OPENAPI_SCHEMA_URL)
         paths, schemas = validate_openapi(args.path, schema)
         print(f"OK: openapi 3.1, {paths} paths, {schemas} schemas, 0 schema violations")

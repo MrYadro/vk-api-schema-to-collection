@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-PLAIN_KEY = re.compile(r"[A-Za-z0-9_-]+\Z")
+PLAIN_KEY = re.compile(r"[A-Za-z0-9_$-]+\Z")
 PLAIN_SCALAR = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./()+,-]*\Z")
 RESERVED = {"true", "false", "yes", "no", "on", "off", "null", "~", ""}
 
@@ -88,11 +88,18 @@ def key(k):
     return json.dumps(k)
 
 
+def block_scalar(v):
+    return isinstance(v, str) and "\n" in v and all(not line.startswith((" ", "\t")) for line in v.split("\n"))
+
+
 def emit(obj, indent, out):
     pad = "  " * indent
     if isinstance(obj, dict):
         for k, v in obj.items():
-            if isinstance(v, (dict, list)) and v:
+            if block_scalar(v):
+                out.append(f"{pad}{key(k)}: |-")
+                out.extend(f"{pad}  {line}" for line in v.split("\n"))
+            elif isinstance(v, (dict, list)) and v:
                 out.append(f"{pad}{key(k)}:")
                 emit(v, indent + 1, out)
             elif isinstance(v, dict):
@@ -110,7 +117,10 @@ def emit(obj, indent, out):
         first = True
         for k, v in item.items():
             prefix = f"{pad}- " if first else item_pad
-            if isinstance(v, (dict, list)) and v:
+            if block_scalar(v):
+                out.append(f"{prefix}{key(k)}: |-")
+                out.extend(f"{item_pad}  {line}" for line in v.split("\n"))
+            elif isinstance(v, (dict, list)) and v:
                 out.append(f"{prefix}{key(k)}:")
                 emit(v, indent + 2, out)
             elif isinstance(v, dict):
@@ -885,12 +895,124 @@ def build_openapi(schema_dir, api_version, collection_name="VK API", description
     return doc, stats
 
 
+POSTMAN_V3_KIND_COLLECTION = "collection"
+POSTMAN_V3_KIND_REQUEST = "http-request"
+
+
+def postman_v3_auth_id(info):
+    return str(uuid.uuid5(POSTMAN_NAMESPACE, f"v3-auth/{info.get('name', '')}/{info.get('version', '')}"))
+
+
+def postman_v3_definition(collection):
+    variables = {var["name"]: var.get("value", "") for var in collection["request"].get("variables", [])}
+    variables["accessToken"] = ""
+    auth = collection["request"]["auth"]
+    return {
+        "$kind": POSTMAN_V3_KIND_COLLECTION,
+        "description": collection.get("docs"),
+        "variables": variables,
+        "scripts": [
+            {
+                "type": "http:afterResponse",
+                "code": POSTMAN_TEST_SCRIPT,
+                "language": "text/javascript",
+            }
+        ],
+        "auth": [
+            {
+                "id": postman_v3_auth_id(collection["info"]),
+                "type": auth["type"],
+                "name": "bearer auth",
+                "credentials": {"token": auth["token"]},
+            }
+        ],
+    }
+
+
+def postman_v3_folder_definition(folder):
+    return {
+        "$kind": POSTMAN_V3_KIND_COLLECTION,
+        "description": folder.get("docs") or folder["info"].get("description"),
+        "order": folder["info"].get("seq", 1) * 1000,
+    }
+
+
+def postman_v3_request(req):
+    info = req["info"]
+    http = req["http"]
+    rows = []
+    for row in http.get("body", {}).get("data", []):
+        out = {"key": row["name"], "value": row.get("value", "")}
+        if row.get("disabled"):
+            out["disabled"] = True
+        if row.get("description"):
+            out["description"] = row["description"]
+        rows.append(out)
+    doc = {
+        "$kind": POSTMAN_V3_KIND_REQUEST,
+        "description": req.get("docs") or info.get("description"),
+        "url": http["url"],
+        "method": http["method"],
+        "body": {"type": "urlencoded", "content": rows},
+        "order": info.get("seq", 1) * 1000,
+    }
+    return doc
+
+
+def postman_v3_environment(env):
+    values = []
+    for var in env.get("variables", []):
+        out = {"key": var["name"], "value": var.get("value", "")}
+        if var.get("description"):
+            out["description"] = var["description"]
+        values.append(out)
+    return {
+        "name": env["name"],
+        "color": POSTMAN_ENVIRONMENT_COLOR,
+        "values": values,
+    }
+
+
+POSTMAN_V3_UNSAFE_FILENAME = re.compile(r"[/\\:]")
+
+
+def write_postman_v3(collection, out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    root = out_dir / "postman"
+    coll_dir = root / "collections" / collection["info"]["name"]
+    (coll_dir / ".resources").mkdir(parents=True, exist_ok=True)
+    (coll_dir / ".resources" / "definition.yaml").write_text(
+        to_yaml(postman_v3_definition(collection)), encoding="utf-8"
+    )
+    file_count = 1
+    for folder in collection["items"]:
+        folder_dir = coll_dir / POSTMAN_V3_UNSAFE_FILENAME.sub("_", folder["info"]["name"])
+        (folder_dir / ".resources").mkdir(parents=True, exist_ok=True)
+        (folder_dir / ".resources" / "definition.yaml").write_text(
+            to_yaml(postman_v3_folder_definition(folder)), encoding="utf-8"
+        )
+        file_count += 1
+        for req in folder["items"]:
+            fname = POSTMAN_V3_UNSAFE_FILENAME.sub("_", req["info"]["name"]) + ".request.yaml"
+            (folder_dir / fname).write_text(to_yaml(postman_v3_request(req)), encoding="utf-8")
+            file_count += 1
+    env_dir = root / "environments"
+    env_dir.mkdir(parents=True, exist_ok=True)
+    for env in collection.get("config", {}).get("environments", []):
+        (env_dir / f"{POSTMAN_V3_UNSAFE_FILENAME.sub('_', env['name'])}.environment.yaml").write_text(
+            to_yaml(postman_v3_environment(env)), encoding="utf-8"
+        )
+        file_count += 1
+    return file_count
+
+
 def default_out_path(fmt):
     default = {
         "tree": "dist/opencollection/vk-api",
         "bundled": "dist/opencollection/vk-api.yaml",
         "postman": "dist/postman/vk-api.postman_collection.json",
         "openapi": "dist/openapi/vk-api.yaml",
+        "postman-v3": "dist/postman/vk-api-local",
     }
     return pathlib.Path(default[fmt])
 
@@ -899,7 +1021,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate OpenCollection collection from vk-api-schema")
     parser.add_argument("--schema-dir", default=None, type=pathlib.Path)
     parser.add_argument("--out", default=None, type=pathlib.Path)
-    parser.add_argument("--format", choices=("tree", "bundled", "postman", "openapi"), default="tree")
+    parser.add_argument("--format", choices=("tree", "bundled", "postman", "openapi", "postman-v3"), default="tree")
     parser.add_argument("--api-version", default="latest", help="API version, or 'latest' to fetch from dev portal")
     parser.add_argument("--name", default="VK API")
     parser.add_argument("--all", action="store_true", help="include nodoc/hidden methods (default: public only)")
@@ -945,6 +1067,10 @@ def main():
             env_paths.append(env_path)
         size = f"{args.out.stat().st_size / 1024 / 1024:.1f} MB"
         file_count = 1 + len(env_paths)
+    elif args.format == "postman-v3":
+        file_count = write_postman_v3(collection, args.out)
+        total = sum(f.stat().st_size for f in args.out.rglob("*") if f.is_file())
+        size = f"{total / 1024 / 1024:.1f} MB"
     else:
         file_count = write_tree(collection, args.out)
         total = sum(f.stat().st_size for f in args.out.rglob("*") if f.is_file())
