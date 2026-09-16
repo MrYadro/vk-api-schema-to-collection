@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$comment": "Postman environment format v2.1.0. Vendored from https://schema.getpostman.com/json/collection/v2.1.0/environment.json (no longer served programmatically; validated against exported Postman environments).",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": ["string", "null"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["key", "value"]
+      }
+    },
+    "_postman_variable_scope": {
+      "type": "string",
+      "enum": ["environment"]
+    },
+    "_postman_exported_at": {
+      "type": "string"
+    },
+    "_postman_exported_using": {
+      "type": "string"
+    }
+  },
+  "required": ["name", "values"]
+}

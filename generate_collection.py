@@ -8,6 +8,7 @@ import re
 import sys
 import urllib.parse
 import urllib.request
+import uuid
 
 PLAIN_KEY = re.compile(r"[A-Za-z0-9_-]+\Z")
 PLAIN_SCALAR = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./()+,-]*\Z")
@@ -543,6 +544,120 @@ def write_tree(collection, out_dir):
     return file_count
 
 
+POSTMAN_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+POSTMAN_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/MrYadro/vk-api-schema-to-collection")
+
+POSTMAN_TEST_SCRIPT = """let body = null;
+try { body = pm.response.json(); } catch (err) {}
+if (body && typeof body === 'object' && body.error) {
+  const hints = {5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'};
+  const e = body.error;
+  const hint = hints[e.error_code] ? ` — ${hints[e.error_code]}` : '';
+  pm.test(`VK error ${e.error_code}${hint}: ${e.error_msg}`, () => {
+    throw new Error(`VK API вернул ошибку ${e.error_code}: ${e.error_msg}${hint}`);
+  });
+} else {
+  pm.test('VK API: без ошибок', () => {
+    pm.expect(body && body.error).to.not.exist;
+  });
+}"""
+
+
+def postman_id(info):
+    return str(uuid.uuid5(POSTMAN_NAMESPACE, f"{info.get('name', '')}/{info.get('version', '')}"))
+
+
+def postman_param(row):
+    out = {"key": row["name"], "value": row.get("value", ""), "type": "text"}
+    if row.get("disabled"):
+        out["disabled"] = True
+    if row.get("description"):
+        out["description"] = row["description"]
+    return out
+
+
+def postman_request(req):
+    info = req["info"]
+    http = req["http"]
+    request = {"method": http["method"], "url": http["url"]}
+    description = req.get("docs") or info.get("description")
+    if description:
+        request["description"] = description
+    if http.get("body"):
+        request["body"] = {"mode": "urlencoded", "urlencoded": [postman_param(r) for r in http["body"].get("data", [])]}
+    return {"name": info["name"], "request": request}
+
+
+def postman_folder(folder):
+    info = folder["info"]
+    out = {"name": info["name"]}
+    description = folder.get("docs") or info.get("description")
+    if description:
+        out["description"] = description
+    out["item"] = [
+        postman_request(item) if item["info"]["type"] == "http" else postman_folder(item) for item in folder["items"]
+    ]
+    return out
+
+
+def to_postman(collection):
+    info = collection["info"]
+    variables = []
+    for var in collection["request"].get("variables", []):
+        entry = {"key": var["name"], "value": var.get("value", "")}
+        if var.get("description"):
+            entry["description"] = var["description"]
+        variables.append(entry)
+    token = {}
+    for env in collection.get("config", {}).get("environments", []):
+        for var in env.get("variables", []):
+            if var.get("name") == "accessToken":
+                token = var
+                break
+    token_entry = {"key": "accessToken", "value": ""}
+    if token.get("description"):
+        token_entry["description"] = token["description"]
+    variables.append(token_entry)
+    auth = collection["request"]["auth"]
+    return {
+        "info": {
+            "_postman_id": postman_id(info),
+            "name": info.get("name", "collection"),
+            "schema": POSTMAN_SCHEMA_URL,
+            "description": collection.get("docs"),
+        },
+        "auth": {"type": auth["type"], auth["type"]: [{"key": "token", "value": auth["token"], "type": "string"}]},
+        "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": POSTMAN_TEST_SCRIPT.splitlines()}}],
+        "variable": variables,
+        "item": [postman_folder(folder) for folder in collection["items"]],
+    }
+
+
+def to_postman_environment(env):
+    return {
+        "name": env["name"],
+        "values": [
+            {"key": var["name"], "value": var.get("value", ""), "enabled": True} for var in env.get("variables", [])
+        ],
+        "_postman_variable_scope": "environment",
+    }
+
+
+def dump_postman(collection):
+    return json.dumps(to_postman(collection), ensure_ascii=False, indent=2) + "\n"
+
+
+def dump_postman_environment(env):
+    return json.dumps(to_postman_environment(env), ensure_ascii=False, indent=2) + "\n"
+
+
+def postman_environment_path(out_path):
+    name = out_path.name.replace("postman_collection", "postman_environment")
+    if name == out_path.name:
+        name = f"{out_path.stem}.postman_environment{out_path.suffix}"
+    return out_path.parent / name
+
+
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 
 
@@ -568,7 +683,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate OpenCollection collection from vk-api-schema")
     parser.add_argument("--schema-dir", default=None, type=pathlib.Path)
     parser.add_argument("--out", default=None, type=pathlib.Path)
-    parser.add_argument("--format", choices=("tree", "bundled"), default="tree")
+    parser.add_argument("--format", choices=("tree", "bundled", "postman"), default="tree")
     parser.add_argument("--api-version", default="latest", help="API version, or 'latest' to fetch from dev portal")
     parser.add_argument("--name", default="VK API")
     parser.add_argument("--all", action="store_true", help="include nodoc/hidden methods (default: public only)")
@@ -578,14 +693,33 @@ def main():
     if args.schema_dir is None:
         args.schema_dir = default_schema_dir()
     if args.out is None:
-        args.out = pathlib.Path("bruno-collection/vk-api.yaml" if args.format == "bundled" else "bruno-collection/vk-api")
+        default = {
+            "tree": "dist/vk-api",
+            "bundled": "dist/vk-api.yaml",
+            "postman": "dist/vk-api.postman_collection.json",
+        }
+        args.out = pathlib.Path(default[args.format])
 
     collection, stats = build(args.schema_dir, resolve_api_version(args.api_version), args.name, args.descriptions, args.all)
+    env_paths = []
     if args.format == "bundled":
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(to_yaml({**collection, "bundled": True}), encoding="utf-8")
         size = f"{args.out.stat().st_size / 1024 / 1024:.1f} MB"
         file_count = 1
+    elif args.format == "postman":
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(dump_postman(collection), encoding="utf-8")
+        env_paths = []
+        for i, env in enumerate(collection.get("config", {}).get("environments", [])):
+            if i == 0:
+                env_path = postman_environment_path(args.out)
+            else:
+                env_path = args.out.parent / f"{SAFE_FILENAME.sub('_', env['name'])}.postman_environment.json"
+            env_path.write_text(dump_postman_environment(env), encoding="utf-8")
+            env_paths.append(env_path)
+        size = f"{args.out.stat().st_size / 1024 / 1024:.1f} MB"
+        file_count = 1 + len(env_paths)
     else:
         file_count = write_tree(collection, args.out)
         total = sum(f.stat().st_size for f in args.out.rglob("*") if f.is_file())
@@ -596,7 +730,9 @@ def main():
     print(
         f"format={args.format} folders={stats['folders']} requests={stats['requests']} "
         f"files={file_count} collisions={stats['collisions']} encodings={','.join(stats['encodings'])} "
-        f"ru_descriptions={stats['ru_descriptions']} out={args.out} ({size})"
+        f"ru_descriptions={stats['ru_descriptions']} out={args.out}"
+        + (f" +{len(env_paths)} environment file(s)" if env_paths else "")
+        + f" ({size})"
     )
 
 

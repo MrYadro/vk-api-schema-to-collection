@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .vk_token
 token*
-bruno-collection/
+dist/
 data/
 vk-api/
 *.opencollection.yaml

@@ -32,7 +32,7 @@ jobs:
           if [ -n "${{ inputs.api_version }}" ]; then
             VERSION="${{ inputs.api_version }}"
           else
-            VERSION=$(python3 -c "import generate_opencollection as g; print(g.get_latest_api_version())")
+            VERSION=$(python3 -c "import generate_collection as g; print(g.get_latest_api_version())")
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "VK API version: $VERSION"
@@ -60,7 +60,7 @@ jobs:
       - name: Generate bundled collection
         if: ${{ steps.existing.outputs.exists != 'true' }}
         run: |
-          python3 generate_opencollection.py \
+          python3 generate_collection.py \
             --schema-dir /tmp/vk-api-schema \
             --api-version "${{ steps.version.outputs.version }}" \
             --format bundled \
@@ -69,19 +69,30 @@ jobs:
       - name: Generate tree collection
         if: ${{ steps.existing.outputs.exists != 'true' }}
         run: |
-          python3 generate_opencollection.py \
+          python3 generate_collection.py \
             --schema-dir /tmp/vk-api-schema \
             --api-version "${{ steps.version.outputs.version }}" \
             --format tree \
             --out vk-api
           zip -qr "vk-api-${{ steps.version.outputs.version }}.opencollection.zip" vk-api
 
+      - name: Generate Postman collection
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        run: |
+          python3 generate_collection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format postman \
+            --out "vk-api-${{ steps.version.outputs.version }}.postman_collection.json"
+
       - name: Validate
         if: ${{ steps.existing.outputs.exists != 'true' }}
         run: |
           pip install --quiet pyyaml jsonschema
-          python3 validate_opencollection.py "vk-api-${{ steps.version.outputs.version }}.opencollection.yaml"
-          python3 validate_opencollection.py vk-api
+          python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.opencollection.yaml"
+          python3 validate_collection.py vk-api
+          python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.postman_collection.json"
+          python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.postman_environment.json"
 
       - name: Create release
         if: ${{ steps.existing.outputs.exists != 'true' }}
@@ -90,12 +101,16 @@ jobs:
           tag_name: "v${{ steps.version.outputs.version }}"
           name: "VK API ${{ steps.version.outputs.version }}"
           body: |
-            OpenCollection for VK API, generated from [VKCOM/vk-api-schema](https://github.com/VKCOM/vk-api-schema) for API version **${{ steps.version.outputs.version }}**.
+            API collections for VK API, generated from [VKCOM/vk-api-schema](https://github.com/VKCOM/vk-api-schema) for API version **${{ steps.version.outputs.version }}**.
 
             - `vk-api-${{ steps.version.outputs.version }}.opencollection.zip` — Bruno tree format: unpack and *File → Open Collection*
-            - `vk-api-${{ steps.version.outputs.version }}.opencollection.yaml` — bundled single file
+            - `vk-api-${{ steps.version.outputs.version }}.opencollection.yaml` — OpenCollection bundled single file
+            - `vk-api-${{ steps.version.outputs.version }}.postman_collection.json` — Postman: *Import → File*
+            - `vk-api-${{ steps.version.outputs.version }}.postman_environment.json` — Postman environment `api.vk.ru` (tokens)
 
-            Auth: collection-level Bearer `{{accessToken}}` (secret in the `api.vk.ru` environment); `baseUrl`/`apiVersion` are collection variables.
+            Auth: collection-level Bearer `{{accessToken}}`; `baseUrl`/`apiVersion` are collection variables.
           files: |
             vk-api-${{ steps.version.outputs.version }}.opencollection.yaml
             vk-api-${{ steps.version.outputs.version }}.opencollection.zip
+            vk-api-${{ steps.version.outputs.version }}.postman_collection.json
+            vk-api-${{ steps.version.outputs.version }}.postman_environment.json
