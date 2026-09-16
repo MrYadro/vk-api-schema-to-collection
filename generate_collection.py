@@ -635,7 +635,7 @@ def to_postman(collection):
     }
 
 
-POSTMAN_ENVIRONMENT_COLOR = 131  # числовой индекс палитры Postman (не документирован; из реального экспорта)
+POSTMAN_ENVIRONMENT_COLOR = 212  # hue-колесо Postman 0-360; 212 = #0077FF (VK blue)
 
 
 def to_postman_environment(env):
