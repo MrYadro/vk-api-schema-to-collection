@@ -50,6 +50,16 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Week bucket
+        id: bucket
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache RU descriptions
+        uses: actions/cache@v4
+        with:
+          path: data/parameter_descriptions.json
+          key: parameter-descriptions-${{ steps.version.outputs.version }}-${{ steps.bucket.outputs.week }}
+
       - name: Fetch RU descriptions
         if: ${{ steps.existing.outputs.exists != 'true' }}
         continue-on-error: true
