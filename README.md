@@ -69,5 +69,5 @@ Workflow `.github/workflows/release.yml` (ручной запуск, Actions →
 - определяет версию API — из input или через `documentation.getLastVersion`;
 - клонирует vk-api-schema, обновляет кэш русских описаний;
 - собирает все форматы и валидирует по официальным JSON Schema (postman-v3 — структурные проверки);
-- пакует в четыре zip-артефакта: `opencollection.zip` (tree + bundled), `postman.zip` (коллекция + окружение), `postman-v3.zip` (Native Git дерево), `openapi.zip`;
+- пакует в три zip-артефакта: `opencollection.zip` (tree + bundled), `postman.zip` (коллекция v2.1 + окружение + `vk-api-local/` Native Git дерево), `openapi.zip`;
 - создаёт релиз `VK API <version>` с тегом `v<version>` (существующий тег не перезаписывается, если не включить `force`).

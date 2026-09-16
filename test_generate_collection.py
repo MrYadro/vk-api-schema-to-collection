@@ -426,6 +426,8 @@ class TestWritePostmanV3(unittest.TestCase):
             out = pathlib.Path(tmp)
             files = g.write_postman_v3(COLLECTION, out)
             root = out / "postman"
+            self.assertTrue((out / ".postman/resources.yaml").is_file())
+            self.assertTrue((root / "globals/workspace.globals.yaml").is_file())
             self.assertTrue((root / "collections/VK API/.resources/definition.yaml").is_file())
             self.assertTrue((root / "collections/VK API/Users/.resources/definition.yaml").is_file())
             self.assertTrue((root / "collections/VK API/Users/users.get.request.yaml").is_file())
@@ -433,7 +435,7 @@ class TestWritePostmanV3(unittest.TestCase):
             req_text = (root / "collections/VK API/Users/users.get.request.yaml").read_text(encoding="utf-8")
             self.assertIn("$kind: http-request", req_text)
             self.assertIn("order: 1000", req_text)
-            self.assertEqual(files, 4)
+            self.assertEqual(files, 6)
 
     def test_default_out(self):
         self.assertEqual(g.default_out_path("postman-v3"), pathlib.Path("dist/postman/vk-api-local"))

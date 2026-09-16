@@ -978,13 +978,23 @@ POSTMAN_V3_UNSAFE_FILENAME = re.compile(r"[/\\:]")
 
 def write_postman_v3(collection, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / ".postman").mkdir(parents=True, exist_ok=True)
+    (out_dir / ".postman" / "resources.yaml").write_text(
+        to_yaml({"workspace": {}, "cloudResources": {"collections": {}, "environments": {}, "globals": {}, "flows": {}, "documents": {}}}),
+        encoding="utf-8",
+    )
     root = out_dir / "postman"
+    globals_dir = root / "globals"
+    globals_dir.mkdir(parents=True, exist_ok=True)
+    (globals_dir / "workspace.globals.yaml").write_text(
+        to_yaml({"name": "Globals", "values": []}), encoding="utf-8"
+    )
     coll_dir = root / "collections" / collection["info"]["name"]
     (coll_dir / ".resources").mkdir(parents=True, exist_ok=True)
     (coll_dir / ".resources" / "definition.yaml").write_text(
         to_yaml(postman_v3_definition(collection)), encoding="utf-8"
     )
-    file_count = 1
+    file_count = 3
     for folder in collection["items"]:
         folder_dir = coll_dir / POSTMAN_V3_UNSAFE_FILENAME.sub("_", folder["info"]["name"])
         (folder_dir / ".resources").mkdir(parents=True, exist_ok=True)
