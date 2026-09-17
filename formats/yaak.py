@@ -51,6 +51,7 @@ def yaak_resources(collection):
                     "public": True,
                     "parentModel": "workspace",
                     "parentId": "wrk_1",
+                    "color": env.get("color", "#0077FF"),
                     "variables": [{"name": v["name"], "value": v.get("value", ""), "enabled": True} for v in env.get("variables", [])],
                 },
             )

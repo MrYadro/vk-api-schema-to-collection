@@ -21,6 +21,7 @@ class TestYaak(unittest.TestCase):
         self.assertEqual(resources["wrk_1"]["authenticationType"], "bearer")
         self.assertEqual(resources["wrk_1"]["authentication"]["token"], "${[ env.accessToken ]}")
         self.assertEqual(resources["env_1"]["model"], "environment")
+        self.assertEqual(resources["env_1"]["color"], "#0077FF")
         self.assertEqual(resources["fl_1"]["model"], "folder")
         self.assertEqual(resources["fl_1"]["workspaceId"], "wrk_1")
         req = resources["rq_1"]
