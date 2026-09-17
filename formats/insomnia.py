@@ -52,6 +52,7 @@ def to_insomnia(collection):
             "parentId": "__WORKSPACE_ID__",
             "name": collection["info"]["name"],
             "description": collection.get("docs") or "",
+            "metaSortKey": 0,
             "authentication": {"type": "bearer", "token": _var(collection["request"]["auth"]["token"]), "prefix": ""},
         }
     )
@@ -63,9 +64,10 @@ def to_insomnia(collection):
                 "parentId": "__GRP_0__",
                 "name": folder["info"]["name"],
                 "description": folder.get("docs") or folder["info"].get("description") or "",
+                "metaSortKey": i * 1000,
             }
         )
-        for j, req in enumerate(folder.get("items", [])):
+        for j, req in enumerate(folder.get("items", []), start=1):
             http = req["http"]
             resources.append(
                 {
@@ -77,6 +79,7 @@ def to_insomnia(collection):
                     "url": _var(http["url"]),
                     "body": {"mimeType": "application/x-www-form-urlencoded", "params": _params(http.get("body", {}).get("data", []))},
                     "description": req.get("docs") or req["info"].get("description") or "",
+                    "metaSortKey": j * 1000,
                 }
             )
     return {"_type": "export", "__export_format": 4, "resources": resources}

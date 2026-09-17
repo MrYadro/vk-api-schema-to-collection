@@ -99,13 +99,16 @@ class TestInsomniaV5(unittest.TestCase):
             {"type": "bearer", "token": "{{ accessToken }}", "prefix": ""},
         )
         self.assertEqual(root["meta"]["description"], "# VK API\n\nКоллекция методов VK API.")
+        self.assertEqual(root["meta"]["sortKey"], 0)
         users = root["children"][0]
         self.assertEqual(users["name"], "Users")
         self.assertNotIn("method", users)
         self.assertEqual(users["meta"]["description"], "# Users\n\n1 метод(ов) VK API.")
+        self.assertEqual(users["meta"]["sortKey"], 1000)
         req = users["children"][0]
         self.assertEqual(req["name"], "users.get")
         self.assertEqual(req["method"], "POST")
+        self.assertEqual(req["meta"]["sortKey"], 1000)
         self.assertEqual(req["url"], "{{ baseUrl }}/method/users.get")
         self.assertEqual(req["body"]["mimeType"], "application/x-www-form-urlencoded")
         params = req["body"]["params"]

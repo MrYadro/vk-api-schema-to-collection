@@ -46,7 +46,7 @@ def _v5_request(req, folder_idx, idx):
         "meta": {
             "id": f"__REQ_{folder_idx}_{idx}__",
             "description": req.get("docs") or req["info"].get("description") or "",
-            "sortKey": idx,
+            "sortKey": idx * 1000,
         },
         "method": http["method"],
         "url": _var(http["url"]),
@@ -63,7 +63,7 @@ def _v5_folder(folder, folder_idx):
         "meta": {
             "id": f"__GRP_{folder_idx}__",
             "description": folder.get("docs") or folder["info"].get("description") or "",
-            "sortKey": folder_idx,
+            "sortKey": folder_idx * 1000,
         },
         "children": [
             _v5_request(req, folder_idx, idx)

@@ -22,12 +22,15 @@ class TestInsomnia(unittest.TestCase):
         groups = [r for r in doc["resources"] if r["_type"] == "request_group"]
         root = [g for g in groups if g["parentId"] == "__WORKSPACE_ID__"][0]
         self.assertEqual(root["name"], "VK API")
+        self.assertEqual(root["metaSortKey"], 0)
         self.assertEqual(root["authentication"]["type"], "bearer")
         self.assertEqual(root["authentication"]["token"], "{{ accessToken }}")
         folder = [g for g in groups if g["parentId"] != "__WORKSPACE_ID__"][0]
         self.assertEqual(folder["name"], "Users")
+        self.assertEqual(folder["metaSortKey"], 1000)
         req = [r for r in doc["resources"] if r["_type"] == "request"][0]
         self.assertEqual(req["method"], "POST")
+        self.assertEqual(req["metaSortKey"], 1000)
         self.assertEqual(req["url"], "{{ baseUrl }}/method/users.get")
         self.assertEqual(req["body"]["mimeType"], "application/x-www-form-urlencoded")
         params = req["body"]["params"]
