@@ -103,7 +103,7 @@ python3 generate_collection.py --format tree --prune       # полная пер
 | postman v2.1 | ✓ | ✓ | ✓ | ✓ | — | GUI | — |
 | postman-v3 (Native Git) | частично¹ | ✓ | ✓ | ✓ | ✓ | папка (Postman) | — |
 | openapi | — | ✓ | — | ✓ | — | GUI/кодоген | — |
-| yaak | частично² | ✓ | ✓ | —³ | ✓ | папка/`yaak import` | `yaak` CLI |
+| yaak | частично² | ✓ | ✓ | —³ | ✓⁵ | папка/`yaak import` | `yaak` CLI |
 | insomnia v4 | ✓⁴ | ✓ | ✓ | ✓ | — | GUI | — |
 | insomnia-v5 | частично | ✓ | ✓ | ✓ | ✓ | папка/git sync | `inso` |
 | hoppscotch | ✓ | ✓ | ✓ | — | — | GUI | `hopp test` |
@@ -112,7 +112,9 @@ python3 generate_collection.py --format tree --prune       # полная пер
 
 ¹ accessToken в definition.yaml перегенерируется; ² флага нет, шифрование при
 заполнении; ³ у form-строк Yaak нет description; ⁴ kvPairData `type: secret`
-(финализируется эталонным тестом).
+(финализируется эталонным тестом); ⁵ id файлов yaak позиционные: вставка метода
+в середину схемы пересчитывает суффиксы — ожидайте diff-шум в git, данные при
+merge сохраняются.
 
 ## Параметры запуска
 
