@@ -120,8 +120,8 @@ python3 generate_collection.py --format tree --prune       # полная пер
 
 | Флаг | По умолчанию | Описание |
 | --- | --- | --- |
-| `--format` | `tree` | Формат вывода: `tree` \| `bundled` \| `postman` \| `postman-v3` \| `openapi`. |
-| `--out` | по формату (`dist/…`) | Путь вывода: каталог для `tree`/`postman-v3`, файл для остальных. |
+| `--format` | `tree` | Формат вывода: `tree` \| `bundled` \| `postman` \| `postman-v3` \| `openapi` \| `yaak` \| `insomnia` \| `insomnia-v5` \| `hoppscotch`. |
+| `--out` | по формату (`dist/…`) | Путь вывода: каталог для `tree`/`postman-v3`/`yaak`/`insomnia-v5`/`hoppscotch`, файл для остальных. |
 | `--schema-dir` | `~/Dev/vk-api-schema` | Путь к клону vk-api-schema (или переменная `VK_API_SCHEMA_DIR`). |
 | `--api-version` | `latest` | Версия API; `latest` — взять актуальную с dev-портала. |
 | `--name` | `VK API` | Имя коллекции. |
