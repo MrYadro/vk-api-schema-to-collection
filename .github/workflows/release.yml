@@ -161,10 +161,10 @@ jobs:
           zip -q "vk-api-${V}.postman.zip" "vk-api-${V}.postman_collection.json" "vk-api-${V}.postman_environment.json"
           zip -qr "vk-api-${V}.postman.zip" vk-api-local
           zip -q "vk-api-${V}.openapi.zip" "vk-api-${V}.openapi.yaml"
-          zip -qr "vk-api-${V}.clients.zip" vk-api-yaak
-          zip -q "vk-api-${V}.clients.zip" "vk-api-${V}.insomnia.json"
-          zip -qr "vk-api-${V}.clients.zip" vk-api-insomnia-local
-          zip -qr "vk-api-${V}.clients.zip" vk-api-hoppscotch
+          zip -qr "vk-api-${V}.yaak.zip" vk-api-yaak
+          zip -q "vk-api-${V}.insomnia.zip" "vk-api-${V}.insomnia.json"
+          zip -qr "vk-api-${V}.insomnia.zip" vk-api-insomnia-local
+          zip -qr "vk-api-${V}.hoppscotch.zip" vk-api-hoppscotch
           unzip -l "vk-api-${V}.opencollection.zip" | head -5
 
       - name: Create release
@@ -179,11 +179,15 @@ jobs:
             - `vk-api-${{ steps.version.outputs.version }}.opencollection.zip` — OpenCollection: tree (Bruno: *File → Open Collection*) + bundled YAML
             - `vk-api-${{ steps.version.outputs.version }}.postman.zip` — Postman: коллекция v2.1 + окружение `api.vk.ru` + `vk-api-local/` (Native Git дерево V3: Files → Open folder)
             - `vk-api-${{ steps.version.outputs.version }}.openapi.zip` — OpenAPI 3.1 (Swagger UI / codegen / Postman import)
-            - `vk-api-${{ steps.version.outputs.version }}.clients.zip` — клиентские коллекции: Yaak (`vk-api-yaak/`, sync-папка), Insomnia v4 (`.insomnia.json`, GUI-импорт) + v5 (`vk-api-insomnia-local/`, git-sync папка), Hoppscotch (`vk-api-hoppscotch/`, коллекция + окружение)
+            - `vk-api-${{ steps.version.outputs.version }}.yaak.zip` — Yaak: sync-папка (`vk-api-yaak/`, Open Workspace или `yaak import`)
+            - `vk-api-${{ steps.version.outputs.version }}.insomnia.zip` — Insomnia: v4 JSON (GUI-импорт) + v5 Git Sync папка (`vk-api-insomnia-local/`)
+            - `vk-api-${{ steps.version.outputs.version }}.hoppscotch.zip` — Hoppscotch: коллекция + окружение (`vk-api-hoppscotch/`)
 
             Auth: collection-level Bearer `{{accessToken}}`; `baseUrl`/`apiVersion` are collection variables.
           files: |
             vk-api-${{ steps.version.outputs.version }}.opencollection.zip
             vk-api-${{ steps.version.outputs.version }}.postman.zip
             vk-api-${{ steps.version.outputs.version }}.openapi.zip
-            vk-api-${{ steps.version.outputs.version }}.clients.zip
+            vk-api-${{ steps.version.outputs.version }}.yaak.zip
+            vk-api-${{ steps.version.outputs.version }}.insomnia.zip
+            vk-api-${{ steps.version.outputs.version }}.hoppscotch.zip
