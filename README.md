@@ -65,7 +65,25 @@ python3 generate_collection.py --format tree --prune       # полная пер
 | --- | --- |
 | `fetch_parameter_descriptions.py` | Обходит методы через `documentation.getPage` dev-портала, кэш — `data/parameter_descriptions.json`. |
 | `generate_collection.py` | Строит коллекцию. |
+| `core.py` + `formats/` | Общее ядро генерации и модули форматов (точка расширения — см. «Как добавить формат вывода»). |
 | `validate_collection.py` | Валидирует сгенерированное по официальным JSON Schema: OpenCollection (tree/bundled), Postman (коллекция/окружение), OpenAPI 3.1; postman-v3 — структурные проверки. Формат определяется по пути. |
+
+## Как добавить формат вывода
+
+Форматы живут в `formats/` — по модулю на формат, каждый экспортирует `FormatSpec`:
+
+1. Создайте `formats/<имя>.py`: функции `write(payload, out) -> (file_count, note)`,
+   опционально `build(ctx)` (по умолчанию — общая модель коллекции через
+   `formats.build_collection`), `matches(path)` и `validate(path)` для валидатора.
+2. Зарегистрируйте спеку в `FORMATS` в `formats/__init__.py`.
+3. Для поддержки `--merge`: `load_existing(out)` и `prune_orphans(out, collection)`
+   в том же модуле плюс `supports_merge=True` (см. `formats/opencollection.py`).
+4. Чтобы валидатор распознавал вывод формата — добавьте имя в `SNIFF_PRIORITY`
+   в `validate_collection.py` и свою OK-строку печати в его `main()`
+   (по умолчанию — `OK: N folders, M requests`).
+
+`--format`, дефолтный путь вывода и статистика печати подхватываются из реестра
+автоматически.
 
 ## Параметры запуска
 

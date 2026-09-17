@@ -4,7 +4,9 @@ import tempfile
 import unittest
 import uuid
 
+import core
 import generate_collection as g
+from formats import openapi, postman, postman_v3
 
 POSTMAN_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 
@@ -83,29 +85,29 @@ def first_request(doc):
 
 class TestToPostman(unittest.TestCase):
     def test_root_info_schema_name_description(self):
-        doc = g.to_postman(COLLECTION)
+        doc = postman.to_postman(COLLECTION)
         self.assertEqual(doc["info"]["schema"], POSTMAN_SCHEMA_URL)
         self.assertEqual(doc["info"]["name"], "VK API")
         self.assertEqual(doc["info"]["description"], "# VK API\n\nКоллекция методов VK API.")
 
     def test_postman_id_is_stable_uuid(self):
-        id1 = g.to_postman(COLLECTION)["info"]["_postman_id"]
+        id1 = postman.to_postman(COLLECTION)["info"]["_postman_id"]
         uuid.UUID(id1)
-        id2 = g.to_postman(COLLECTION)["info"]["_postman_id"]
+        id2 = postman.to_postman(COLLECTION)["info"]["_postman_id"]
         self.assertEqual(id1, id2)
         other = json.loads(json.dumps(COLLECTION))
         other["info"]["version"] = "5.200 (2026-09-16)"
-        self.assertNotEqual(id1, g.to_postman(other)["info"]["_postman_id"])
+        self.assertNotEqual(id1, postman.to_postman(other)["info"]["_postman_id"])
 
     def test_collection_auth_bearer(self):
-        doc = g.to_postman(COLLECTION)
+        doc = postman.to_postman(COLLECTION)
         self.assertEqual(
             doc["auth"],
             {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
         )
 
     def test_test_event_uses_pm_api(self):
-        script = g.to_postman(COLLECTION)["event"][0]
+        script = postman.to_postman(COLLECTION)["event"][0]
         self.assertEqual(script["listen"], "test")
         self.assertEqual(script["script"]["type"], "text/javascript")
         self.assertIsInstance(script["script"]["exec"], list)
@@ -115,7 +117,7 @@ class TestToPostman(unittest.TestCase):
         self.assertIn("error_code", code)
 
     def test_variables(self):
-        variables = {v["key"]: v for v in g.to_postman(COLLECTION)["variable"]}
+        variables = {v["key"]: v for v in postman.to_postman(COLLECTION)["variable"]}
         self.assertEqual(variables["baseUrl"]["value"], "https://api.vk.ru")
         self.assertEqual(variables["apiVersion"]["value"], "5.199")
         self.assertEqual(variables["accessToken"]["value"], "")
@@ -123,13 +125,13 @@ class TestToPostman(unittest.TestCase):
         self.assertNotIn("type", variables["baseUrl"])
 
     def test_folder_mapping(self):
-        folder = first_folder(g.to_postman(COLLECTION))
+        folder = first_folder(postman.to_postman(COLLECTION))
         self.assertEqual(folder["name"], "Users")
         self.assertEqual(folder["description"], "# Users\n\n1 метод(ов) VK API.")
         self.assertEqual(len(folder["item"]), 1)
 
     def test_request_mapping(self):
-        req = first_request(g.to_postman(COLLECTION))
+        req = first_request(postman.to_postman(COLLECTION))
         self.assertEqual(req["name"], "users.get")
         http = req["request"]
         self.assertEqual(http["method"], "POST")
@@ -145,16 +147,16 @@ class TestToPostman(unittest.TestCase):
         self.assertEqual(rows[2], {"key": "v", "value": "{{apiVersion}}", "type": "text"})
 
     def test_request_description_is_full_docs(self):
-        req = first_request(g.to_postman(COLLECTION))
+        req = first_request(postman.to_postman(COLLECTION))
         self.assertEqual(req["request"]["description"], "# users.get\n\n## Параметры\n\n| Параметр |\n|---|")
 
     def test_extensions_not_leaked(self):
-        doc = g.to_postman(COLLECTION)
+        doc = postman.to_postman(COLLECTION)
         self.assertNotIn("extensions", doc)
         self.assertNotIn("opencollection", doc)
 
     def test_environment_file(self):
-        env = g.to_postman_environment(COLLECTION["config"]["environments"][0])
+        env = postman.to_postman_environment(COLLECTION["config"]["environments"][0])
         self.assertEqual(env["name"], "api.vk.ru")
         self.assertEqual(env["_postman_variable_scope"], "environment")
         self.assertIsInstance(env["color"], int)
@@ -168,7 +170,7 @@ class TestToPostman(unittest.TestCase):
         self.assertNotIn("type", values["baseUrl"])
 
     def test_dump_postman_json(self):
-        text = g.dump_postman(COLLECTION)
+        text = postman.dump_postman(COLLECTION)
         doc = json.loads(text)
         self.assertEqual(doc["info"]["name"], "VK API")
 
@@ -184,7 +186,7 @@ class TestDefaultOutPath(unittest.TestCase):
         out = g.default_out_path("postman")
         self.assertEqual(out, pathlib.Path("dist/postman/vk-api.postman_collection.json"))
         self.assertEqual(
-            g.postman_environment_path(out),
+            postman.postman_environment_path(out),
             pathlib.Path("dist/postman/vk-api.postman_environment.json"),
         )
 
@@ -254,7 +256,7 @@ class TestBuildOpenapi(unittest.TestCase):
             path.write_text(json.dumps(doc), encoding="utf-8")
         cls.desc_path = root / "descriptions.json"
         cls.desc_path.write_text(json.dumps(MINI_DESCRIPTIONS), encoding="utf-8")
-        cls.doc, cls.stats = g.build_openapi(root, "5.199", "VK API", cls.desc_path, False)
+        cls.doc, cls.stats = openapi.build_openapi(root, "5.199", "VK API", cls.desc_path, False)
 
     @classmethod
     def tearDownClass(cls):
@@ -347,33 +349,33 @@ class TestBuildOpenapi(unittest.TestCase):
 
 class TestYamlEmit(unittest.TestCase):
     def test_numeric_keys_quoted(self):
-        out = g.to_yaml({"200": "ok"})
+        out = core.to_yaml({"200": "ok"})
         self.assertIn('"200":', out)
         self.assertIn("ok", out)
 
     def test_numeric_string_values_quoted(self):
-        out = g.to_yaml({"code": "200"})
+        out = core.to_yaml({"code": "200"})
         self.assertIn('"200"', out)
 
 
     def test_multiline_string_block_scalar(self):
-        out = g.to_yaml({"description": "line1\nline2"})
+        out = core.to_yaml({"description": "line1\nline2"})
         self.assertIn("description: |-\n", out)
         self.assertIn("  line1\n", out)
         self.assertIn("  line2\n", out)
 
     def test_multiline_leading_space_falls_back_to_quoted(self):
-        out = g.to_yaml({"description": " first line\nsecond"})
+        out = core.to_yaml({"description": " first line\nsecond"})
         self.assertIn('description: " first line\\nsecond"', out)
 
     def test_singleline_string_stays_quoted(self):
-        out = g.to_yaml({"a": "simple"})
+        out = core.to_yaml({"a": "simple"})
         self.assertIn("a: simple", out)
 
 
 class TestToPostmanV3(unittest.TestCase):
     def test_collection_definition(self):
-        doc = g.postman_v3_definition(COLLECTION)
+        doc = postman_v3.postman_v3_definition(COLLECTION)
         self.assertEqual(doc["$kind"], "collection")
         self.assertEqual(doc["description"], "# VK API\n\nКоллекция методов VK API.")
         self.assertEqual(doc["variables"], {"baseUrl": "https://api.vk.ru", "apiVersion": "5.199", "accessToken": ""})
@@ -388,14 +390,14 @@ class TestToPostmanV3(unittest.TestCase):
 
     def test_folder_definition(self):
         folder = COLLECTION["items"][0]
-        doc = g.postman_v3_folder_definition(folder)
+        doc = postman_v3.postman_v3_folder_definition(folder)
         self.assertEqual(doc["$kind"], "collection")
         self.assertEqual(doc["description"], "# Users\n\n1 метод(ов) VK API.")
         self.assertEqual(doc["order"], 2000)
 
     def test_request(self):
         req = COLLECTION["items"][0]["items"][0]
-        doc = g.postman_v3_request(req)
+        doc = postman_v3.postman_v3_request(req)
         self.assertEqual(doc["$kind"], "http-request")
         self.assertEqual(doc["url"], "{{baseUrl}}/method/users.get")
         self.assertEqual(doc["method"], "POST")
@@ -408,9 +410,9 @@ class TestToPostmanV3(unittest.TestCase):
         self.assertEqual(rows[-1], {"key": "v", "value": "{{apiVersion}}"})
 
     def test_environment(self):
-        doc = g.postman_v3_environment(COLLECTION["config"]["environments"][0])
+        doc = postman_v3.postman_v3_environment(COLLECTION["config"]["environments"][0])
         self.assertEqual(doc["name"], "api.vk.ru")
-        self.assertEqual(doc["color"], g.POSTMAN_ENVIRONMENT_COLOR)
+        self.assertEqual(doc["color"], postman.POSTMAN_ENVIRONMENT_COLOR)
         self.assertEqual(doc["values"][0], {"key": "baseUrl", "value": "https://api.vk.ru"})
         self.assertEqual(
             doc["values"][2],
@@ -424,7 +426,7 @@ class TestWritePostmanV3(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp)
-            files = g.write_postman_v3(COLLECTION, out)
+            files = postman_v3.write_postman_v3(COLLECTION, out)
             root = out / "postman"
             self.assertTrue((out / ".postman/resources.yaml").is_file())
             self.assertTrue((root / "globals/workspace.globals.yaml").is_file())

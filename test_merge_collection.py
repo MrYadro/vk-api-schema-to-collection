@@ -1,12 +1,16 @@
 import copy
 import json
 import pathlib
+import re
 import sys
 import tempfile
 import unittest
 
+import core
 import merge_collection as m
+from formats import FORMATS, opencollection, postman_v3
 from test_generate_collection import COLLECTION as BASE_COLLECTION
+from test_generate_collection import MINI_SCHEMA
 
 
 def new_collection():
@@ -221,10 +225,9 @@ class TestMergeItems(unittest.TestCase):
         self.assertEqual(http["url"], "{{baseUrl}}/method/users.get")
 
     def test_v3_unsafe_regex_synced_with_writer(self):
-        import generate_collection as g
         names = ["Users", "a/b", "c\\d", "e:f", "Проверка", "execute (песочница)", "x y"]
         for name in names:
-            self.assertEqual(m.V3_UNSAFE.sub("_", name), g.POSTMAN_V3_UNSAFE_FILENAME.sub("_", name))
+            self.assertEqual(m.V3_UNSAFE.sub("_", name), postman_v3.POSTMAN_V3_UNSAFE_FILENAME.sub("_", name))
 
     def test_old_only_request_kept_in_model(self):
         new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
@@ -331,19 +334,17 @@ class TestLoadBundled(unittest.TestCase):
             import yaml  # noqa: F401
         except ImportError:
             self.skipTest("pyyaml required")
-        import generate_collection as g
-        self.g = g
 
     def test_round_trip(self):
         doc = {**new_collection(), "bundled": True}
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "c.yaml"
-            path.write_text(self.g.to_yaml(doc), encoding="utf-8")
-            loaded = m.load_bundled(path)
+            path.write_text(core.to_yaml(doc), encoding="utf-8")
+            loaded = opencollection.load_bundled(path)
             self.assertEqual(loaded, new_collection())
 
     def test_missing_file_returns_none(self):
-        self.assertIsNone(m.load_bundled(pathlib.Path("/nonexistent/c.yaml")))
+        self.assertIsNone(opencollection.load_bundled(pathlib.Path("/nonexistent/c.yaml")))
 
 
 TREE_COLLECTION = copy.deepcopy(BASE_COLLECTION)
@@ -367,14 +368,12 @@ class TestLoadTree(unittest.TestCase):
             import yaml  # noqa: F401
         except ImportError:
             self.skipTest("pyyaml required")
-        import generate_collection as g
-        self.g = g
 
     def test_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp) / "vk-api"
-            self.g.write_tree(TREE_COLLECTION, out)
-            loaded = m.load_tree(out)
+            opencollection.write_tree(TREE_COLLECTION, out)
+            loaded = opencollection.load_tree(out)
             self.assertEqual(loaded["info"], TREE_COLLECTION["info"])
             self.assertEqual(loaded["request"], TREE_COLLECTION["request"])
             folder = loaded["items"][0]
@@ -389,7 +388,7 @@ class TestLoadTree(unittest.TestCase):
             self.assertEqual([v["name"] for v in envs[0]["variables"]], ["baseUrl", "apiVersion", "accessToken", "groupToken"])
 
     def test_missing_dir_returns_none(self):
-        self.assertIsNone(m.load_tree(pathlib.Path("/nonexistent/vk-api")))
+        self.assertIsNone(opencollection.load_tree(pathlib.Path("/nonexistent/vk-api")))
 
 
 class TestLoadPostmanV3(unittest.TestCase):
@@ -398,14 +397,12 @@ class TestLoadPostmanV3(unittest.TestCase):
             import yaml  # noqa: F401
         except ImportError:
             self.skipTest("pyyaml required")
-        import generate_collection as g
-        self.g = g
 
     def test_partial_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp)
-            self.g.write_postman_v3(TREE_COLLECTION, out)
-            loaded = m.load_postman_v3(out)
+            postman_v3.write_postman_v3(TREE_COLLECTION, out)
+            loaded = postman_v3.load_postman_v3(out)
             folder = loaded["items"][0]
             self.assertEqual(folder["info"]["name"], "Users")
             self.assertEqual([r["info"]["name"] for r in folder["items"]], ["users.get", "users.search"])
@@ -420,16 +417,16 @@ class TestLoadPostmanV3(unittest.TestCase):
             self.assertEqual(var_values["baseUrl"], "https://api.vk.ru")
 
     def test_missing_dir_returns_none(self):
-        self.assertIsNone(m.load_postman_v3(pathlib.Path("/nonexistent/vk-api-local")))
+        self.assertIsNone(postman_v3.load_postman_v3(pathlib.Path("/nonexistent/vk-api-local")))
 
 
 class TestLoadExistingDispatch(unittest.TestCase):
     def test_dispatch(self):
-        self.assertIsNone(m.load_existing(pathlib.Path("/nonexistent"), "openapi"))
+        self.assertIsNone(FORMATS["openapi"].load_existing)
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "c.yaml"
             path.write_text("info:\n  name: x\n", encoding="utf-8")
-            self.assertIsNotNone(m.load_existing(path, "bundled"))
+            self.assertIsNotNone(FORMATS["bundled"].load_existing(path))
 
 
 def write_stray_tree_request(folder_dir, name):
@@ -437,8 +434,7 @@ def write_stray_tree_request(folder_dir, name):
         "info": {"name": name, "type": "http", "seq": 99},
         "http": {"method": "POST", "url": "{{baseUrl}}/method/" + name, "body": {"type": "form-urlencoded", "data": [{"name": "v", "value": "{{apiVersion}}"}]}},
     }
-    import generate_collection as g
-    (folder_dir / (name.replace(".", "_") + ".yml")).write_text(g.to_yaml(doc), encoding="utf-8")
+    (folder_dir / (name.replace(".", "_") + ".yml")).write_text(core.to_yaml(doc), encoding="utf-8")
 
 
 class TestPruneOrphans(unittest.TestCase):
@@ -447,19 +443,17 @@ class TestPruneOrphans(unittest.TestCase):
             import yaml  # noqa: F401
         except ImportError:
             self.skipTest("pyyaml required")
-        import generate_collection as g
-        self.g = g
 
     def test_tree_removes_stray_request_and_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp) / "vk-api"
-            self.g.write_tree(TREE_COLLECTION, out)
+            opencollection.write_tree(TREE_COLLECTION, out)
             users_dir = out / "Users"
             write_stray_tree_request(users_dir, "users.old")
             ghost = out / "Ghost"
             ghost.mkdir()
-            (ghost / "folder.yml").write_text(self.g.to_yaml({"info": {"name": "Ghost", "type": "folder", "seq": 50}}), encoding="utf-8")
-            removed = m.prune_orphans(out, "tree", TREE_COLLECTION)
+            (ghost / "folder.yml").write_text(core.to_yaml({"info": {"name": "Ghost", "type": "folder", "seq": 50}}), encoding="utf-8")
+            removed = opencollection.tree_prune_orphans(out, TREE_COLLECTION)
             removed_names = sorted(p.name for p in removed)
             self.assertIn("users_old.yml", removed_names)
             self.assertIn("Ghost", removed_names)
@@ -470,20 +464,17 @@ class TestPruneOrphans(unittest.TestCase):
     def test_postman_v3_removes_stray_request_and_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp)
-            self.g.write_postman_v3(TREE_COLLECTION, out)
+            postman_v3.write_postman_v3(TREE_COLLECTION, out)
             users_dir = out / "postman" / "collections" / "VK API" / "Users"
             stray = users_dir / "users.old.request.yaml"
-            stray.write_text(self.g.to_yaml({"$kind": "http-request", "url": "x", "method": "POST", "body": {"type": "urlencoded", "content": []}}), encoding="utf-8")
+            stray.write_text(core.to_yaml({"$kind": "http-request", "url": "x", "method": "POST", "body": {"type": "urlencoded", "content": []}}), encoding="utf-8")
             ghost = out / "postman" / "collections" / "VK API" / "Ghost"
             ghost.mkdir()
-            removed = m.prune_orphans(out, "postman-v3", TREE_COLLECTION)
+            removed = postman_v3.v3_prune_orphans(out, TREE_COLLECTION)
             self.assertFalse(stray.exists())
             self.assertFalse(ghost.exists())
             self.assertEqual(len(removed), 2)
             self.assertTrue((users_dir / "users.get.request.yaml").exists())
-
-    def test_bundled_noop(self):
-        self.assertEqual(m.prune_orphans(pathlib.Path("/nonexistent/c.yaml"), "bundled", {}), [])
 
 
 MINI_METHODS = {
@@ -535,7 +526,6 @@ class TestMainFlags(unittest.TestCase):
                 run_main(["generate_collection.py", "--schema-dir", str(schema), "--format", "openapi", "--prune"])
 
     def test_merge_preserves_user_edits_in_tree(self):
-        import generate_collection as g
         import yaml
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -545,11 +535,11 @@ class TestMainFlags(unittest.TestCase):
             req_file = out / "Users" / "users.get.yml"
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             doc["http"]["body"]["data"][0]["value"] = "1,2"
-            req_file.write_text(g.to_yaml(doc), encoding="utf-8")
+            req_file.write_text(core.to_yaml(doc), encoding="utf-8")
             env_file = out / "environments" / "api.vk.ru.yml"
             env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
             [v for v in env["variables"] if v["name"] == "accessToken"][0]["value"] = "tok"
-            env_file.write_text(g.to_yaml(env), encoding="utf-8")
+            env_file.write_text(core.to_yaml(env), encoding="utf-8")
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.200", "--merge"])
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             self.assertEqual(doc["http"]["body"]["data"][0]["value"], "1,2")
@@ -569,7 +559,6 @@ class TestMainFlags(unittest.TestCase):
             self.assertTrue((out / "Users" / "users.get.yml").is_file())
 
     def test_tree_merge_integration_preserves_user_edits(self):
-        import generate_collection as g
         import yaml
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -580,9 +569,9 @@ class TestMainFlags(unittest.TestCase):
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             doc["http"]["body"]["data"][0]["disabled"] = True
             doc["http"]["body"]["data"].insert(1, {"name": "custom", "value": "42"})
-            req_file.write_text(g.to_yaml(doc), encoding="utf-8")
+            req_file.write_text(core.to_yaml(doc), encoding="utf-8")
             custom_file = out / "Users" / "my.request.yml"
-            custom_file.write_text(g.to_yaml({"info": {"name": "my.request", "type": "http", "seq": 99}, "http": {"method": "POST", "url": "{{baseUrl}}/method/my.request", "auth": "inherit", "body": {"type": "form-urlencoded", "data": [{"name": "v", "value": "{{apiVersion}}"}]}}}), encoding="utf-8")
+            custom_file.write_text(core.to_yaml({"info": {"name": "my.request", "type": "http", "seq": 99}, "http": {"method": "POST", "url": "{{baseUrl}}/method/my.request", "auth": "inherit", "body": {"type": "form-urlencoded", "data": [{"name": "v", "value": "{{apiVersion}}"}]}}}), encoding="utf-8")
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199", "--merge"])
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             rows = {r["name"]: r for r in doc["http"]["body"]["data"]}
@@ -611,8 +600,6 @@ class TestEndToEnd(unittest.TestCase):
             import yaml  # noqa: F401
         except ImportError:
             self.skipTest("pyyaml required")
-        import generate_collection as g
-        self.g = g
 
     def test_bundled_merge(self):
         import yaml
@@ -623,7 +610,7 @@ class TestEndToEnd(unittest.TestCase):
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "bundled", "--api-version", "5.199"])
             doc = yaml.safe_load(out.read_text(encoding="utf-8"))
             doc["config"]["environments"][0]["variables"][2]["value"] = "tok-b"
-            out.write_text(self.g.to_yaml(doc), encoding="utf-8")
+            out.write_text(core.to_yaml(doc), encoding="utf-8")
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "bundled", "--api-version", "5.200", "--merge"])
             doc = yaml.safe_load(out.read_text(encoding="utf-8"))
             env = doc["config"]["environments"][0]["variables"]
@@ -632,7 +619,6 @@ class TestEndToEnd(unittest.TestCase):
             self.assertIn("bundled", doc)
 
     def test_postman_v3_merge_and_prune(self):
-        import validate_collection as v
         import yaml
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -643,11 +629,11 @@ class TestEndToEnd(unittest.TestCase):
             req_file = out / "postman" / "collections" / "VK API" / "Users" / "users.get.request.yaml"
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             doc["body"]["content"][0]["value"] = "1,2"
-            req_file.write_text(self.g.to_yaml(doc), encoding="utf-8")
+            req_file.write_text(core.to_yaml(doc), encoding="utf-8")
             env_file = out / "postman" / "environments" / "api.vk.ru.environment.yaml"
             env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
             [x for x in env["values"] if x["key"] == "accessToken"][0]["value"] = "tok-v3"
-            env_file.write_text(self.g.to_yaml(env), encoding="utf-8")
+            env_file.write_text(core.to_yaml(env), encoding="utf-8")
             run_main(["generate_collection.py", "--schema-dir", str(schema_v2), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge"])
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             rows = {r["key"]: r for r in doc["body"]["content"] if isinstance(r, dict)}
@@ -657,9 +643,67 @@ class TestEndToEnd(unittest.TestCase):
             self.assertEqual([x for x in env["values"] if x["key"] == "apiVersion"][0]["value"], "5.200")
             old_file = out / "postman" / "collections" / "VK API" / "Users" / "users.old.request.yaml"
             self.assertTrue(old_file.exists())
-            folders, requests = v.validate_postman_v3(out)
+            folders, requests = postman_v3.validate(out)
             self.assertEqual((folders, requests), (2, 4))
             run_main(["generate_collection.py", "--schema-dir", str(schema_v2), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge", "--prune"])
             self.assertFalse(old_file.exists())
-            folders, requests = v.validate_postman_v3(out)
+            folders, requests = postman_v3.validate(out)
             self.assertEqual((folders, requests), (2, 3))
+
+
+class TestCliPrintGolden(unittest.TestCase):
+    def setUp(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml required")
+
+    def run_and_capture(self, argv):
+        import generate_collection as g
+        from unittest import mock
+        from contextlib import redirect_stdout
+        import io
+        buf = io.StringIO()
+        with redirect_stdout(buf), mock.patch.object(sys, "argv", argv):
+            g.main()
+        return buf.getvalue()
+
+    def test_tree_print_contains_contract_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            out = root / "out"
+            line = self.run_and_capture(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199"]).strip()
+            self.assertIsNotNone(re.fullmatch(
+                r"format=tree folders=\d+ requests=\d+ files=\d+ collisions=\d+ "
+                r"encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \(\d+\.\d MB\)",
+                line,
+            ), line)
+
+    def test_bundled_and_v3_and_openapi_print(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            openapi_root = root / "oas"
+            for rel, doc in MINI_SCHEMA.items():
+                p = openapi_root / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(json.dumps(doc), encoding="utf-8")
+            cases = [
+                ("bundled", ["--format", "bundled", "--out", str(root / "b.yaml"), "--schema-dir", str(schema)],
+                 r"format=bundled folders=\d+ requests=\d+ files=\d+ collisions=\d+ "
+                 r"encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \(\d+\.\d MB\)"),
+                ("postman-v3", ["--format", "postman-v3", "--out", str(root / "v3"), "--schema-dir", str(schema)],
+                 r"format=postman-v3 folders=\d+ requests=\d+ files=\d+ collisions=\d+ "
+                 r"encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \(\d+\.\d MB\)"),
+                ("postman", ["--format", "postman", "--out", str(root / "p.json"), "--schema-dir", str(schema)],
+                 r"format=postman folders=\d+ requests=\d+ files=\d+ collisions=\d+ "
+                 r"encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \+\d+ environment file\(s\) \(\d+\.\d MB\)"),
+                ("openapi", ["--format", "openapi", "--out", str(root / "o.yaml"), "--schema-dir", str(openapi_root)],
+                 r"format=openapi operations=\d+ schemas=\d+ files=\d+ collisions=\d+ "
+                 r"encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \(\d+\.\d MB\)"),
+            ]
+            for fmt, argv, pattern in cases:
+                with self.subTest(format=fmt):
+                    line = self.run_and_capture(["generate_collection.py", *argv, "--api-version", "5.199"]).strip()
+                    self.assertIsNotNone(re.fullmatch(pattern, line), line)

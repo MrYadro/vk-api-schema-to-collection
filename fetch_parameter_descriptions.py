@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from generate_collection import collect_methods
+from core import collect_methods
 
 API_URL = "https://api.vk.ru/method/documentation.getPage"
 ANON_TOKEN_URL = "https://dev.vk.ru/getAnonymousToken"

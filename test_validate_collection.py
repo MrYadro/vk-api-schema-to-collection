@@ -3,7 +3,8 @@ import tempfile
 import unittest
 
 import validate_collection as v
-from generate_collection import write_postman_v3
+from formats import postman_v3
+from formats.postman_v3 import write_postman_v3
 from test_generate_collection import COLLECTION
 
 
@@ -38,8 +39,17 @@ class TestPickFormat(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp)
             write_postman_v3(COLLECTION, out)
-            folders, requests = v.validate_postman_v3(out)
+            folders, requests = postman_v3.validate(out)
             self.assertEqual((folders, requests), (1, 1))
+
+    def test_postman_environment_skip_returns_none(self):
+        from unittest import mock
+        from formats import postman
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = pathlib.Path(tmp) / "x.postman_environment.json"
+            env_path.write_text("{}", encoding="utf-8")
+            with mock.patch("core.load_schema", side_effect=OSError):
+                self.assertIsNone(postman.validate(env_path))
 
 
 if __name__ == "__main__":

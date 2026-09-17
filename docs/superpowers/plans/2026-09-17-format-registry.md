@@ -149,7 +149,7 @@ def validate(path, schema_override=None):
             schema = core.load_schema(None, core.POSTMAN_ENVIRONMENT_SCHEMA_URL)
         except OSError:
             print(f"SKIP: postman environment schema unavailable online ({core.POSTMAN_ENVIRONMENT_SCHEMA_URL}), validation skipped")
-            return 0, 0
+            return None
         _, values = validate_postman_environment(path, schema)
         return 0, values
     schema = core.allow_postman_secret_type(core.load_schema(None, core.POSTMAN_COLLECTION_SCHEMA_URL))
@@ -780,7 +780,10 @@ def main():
     if spec.name == "postman":
         name = args.path.name
         if "postman_environment" in name:
-            _, values = spec.validate(args.path)
+            res = spec.validate(args.path)
+            if res is None:
+                return None
+            _, values = res
             print(f"OK: postman environment, {values} variables, 0 schema violations")
             return None
         folders, requests = spec.validate(args.path)
