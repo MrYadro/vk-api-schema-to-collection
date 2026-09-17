@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import merge_collection as m
+from test_generate_collection import COLLECTION as BASE_COLLECTION
 
 
 def new_collection():
@@ -325,3 +326,49 @@ class TestLoadBundled(unittest.TestCase):
 
     def test_missing_file_returns_none(self):
         self.assertIsNone(m.load_bundled(pathlib.Path("/nonexistent/c.yaml")))
+
+
+TREE_COLLECTION = copy.deepcopy(BASE_COLLECTION)
+TREE_COLLECTION["items"][0]["items"].append(
+    {
+        "info": {"name": "users.search", "type": "http", "seq": 2, "description": "Поиск пользователей."},
+        "http": {
+            "method": "POST",
+            "url": "{{baseUrl}}/method/users.search",
+            "auth": "inherit",
+            "body": {"type": "form-urlencoded", "data": [{"name": "q", "value": "", "disabled": True}, {"name": "v", "value": "{{apiVersion}}"}]},
+        },
+        "docs": "# users.search",
+    }
+)
+
+
+class TestLoadTree(unittest.TestCase):
+    def setUp(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml required")
+        import generate_collection as g
+        self.g = g
+
+    def test_round_trip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / "vk-api"
+            self.g.write_tree(TREE_COLLECTION, out)
+            loaded = m.load_tree(out)
+            self.assertEqual(loaded["info"], TREE_COLLECTION["info"])
+            self.assertEqual(loaded["request"], TREE_COLLECTION["request"])
+            folder = loaded["items"][0]
+            self.assertEqual(folder["info"]["name"], "Users")
+            self.assertEqual([r["info"]["name"] for r in folder["items"]], ["users.get", "users.search"])
+            self.assertEqual(
+                folder["items"][0]["http"]["body"]["data"],
+                TREE_COLLECTION["items"][0]["items"][0]["http"]["body"]["data"],
+            )
+            envs = loaded["config"]["environments"]
+            self.assertEqual(len(envs), 1)
+            self.assertEqual([v["name"] for v in envs[0]["variables"]], ["baseUrl", "apiVersion", "accessToken", "groupToken"])
+
+    def test_missing_dir_returns_none(self):
+        self.assertIsNone(m.load_tree(pathlib.Path("/nonexistent/vk-api")))

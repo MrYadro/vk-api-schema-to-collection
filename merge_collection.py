@@ -24,6 +24,46 @@ def load_bundled(path):
     return doc
 
 
+def load_tree(out_dir):
+    out_dir = pathlib.Path(out_dir)
+    root_file = out_dir / "opencollection.yml"
+    if not root_file.is_file():
+        return None
+    yaml = _require_yaml()
+    collection = yaml.safe_load(root_file.read_text(encoding="utf-8"))
+    if not isinstance(collection, dict):
+        return None
+    env_dir = out_dir / "environments"
+    envs = []
+    if env_dir.is_dir():
+        for f in sorted(env_dir.glob("*.yml")):
+            doc = yaml.safe_load(f.read_text(encoding="utf-8"))
+            if isinstance(doc, dict):
+                envs.append(doc)
+    collection["config"] = {"environments": envs}
+    folders = []
+    for d in sorted(p for p in out_dir.iterdir() if p.is_dir() and p.name != "environments"):
+        folder_doc = {"info": {"name": d.name, "type": "folder"}}
+        folder_file = d / "folder.yml"
+        if folder_file.is_file():
+            doc = yaml.safe_load(folder_file.read_text(encoding="utf-8"))
+            if isinstance(doc, dict):
+                folder_doc = doc
+        requests = []
+        for f in sorted(d.glob("*.yml")):
+            if f.name == "folder.yml":
+                continue
+            doc = yaml.safe_load(f.read_text(encoding="utf-8"))
+            if isinstance(doc, dict) and isinstance(doc.get("info"), dict):
+                requests.append(doc)
+        requests.sort(key=lambda r: r["info"].get("seq") or 0)
+        folder_doc["items"] = requests
+        folders.append(folder_doc)
+    folders.sort(key=lambda f: (f.get("info") or {}).get("seq") or 0)
+    collection["items"] = folders
+    return collection
+
+
 def _norm_name(name):
     return V3_UNSAFE.sub("_", name or "")
 
