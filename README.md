@@ -23,6 +23,10 @@ python3 generate_collection.py --format bundled
 python3 generate_collection.py --format postman
 python3 generate_collection.py --format postman-v3
 python3 generate_collection.py --format openapi
+python3 generate_collection.py --format yaak
+python3 generate_collection.py --format insomnia
+python3 generate_collection.py --format insomnia-v5
+python3 generate_collection.py --format hoppscotch
 ```
 
 Дефолтный вывод — по папкам форматов в `dist/`:
@@ -31,7 +35,10 @@ python3 generate_collection.py --format openapi
 dist/
 ├── opencollection/    # tree (Bruno: File → Open Collection) и bundled YAML
 ├── postman/           # vk-api.postman_collection.json + окружение; vk-api-local/ — Native Git дерево
-└── openapi/           # OpenAPI 3.1 spec (Swagger UI / codegen)
+├── openapi/           # OpenAPI 3.1 spec (Swagger UI / codegen)
+├── yaak/              # sync-папка Yaak (yaak.<id>.yaml)
+├── insomnia/          # vk-api.insomnia.json (v4 GUI-импорт); vk-api-local/ — Git Sync папка v5
+└── hoppscotch/        # коллекция vk-api.json + окружение api.vk.ru.env.json
 ```
 
 В Bruno: File → Open Collection → выбрать папку `dist/opencollection/vk-api`.
@@ -84,6 +91,28 @@ python3 generate_collection.py --format tree --prune       # полная пер
 
 `--format`, дефолтный путь вывода и статистика печати подхватываются из реестра
 автоматически.
+
+## Сравнение форматов
+
+Срез на сентябрь 2026; Kreya и HTTPie не входят в генератор — см. строки.
+
+| Формат | Секреты | Docs запроса | Docs папки | Param description | Merge | Импорт | CLI |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| tree (Bruno) | ✓ | ✓ | ✓ | ✓ | ✓ | папка (Bruno) | — |
+| bundled (OpenCollection) | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
+| postman v2.1 | ✓ | ✓ | ✓ | ✓ | — | GUI | — |
+| postman-v3 (Native Git) | частично¹ | ✓ | ✓ | ✓ | ✓ | папка (Postman) | — |
+| openapi | — | ✓ | — | ✓ | — | GUI/кодоген | — |
+| yaak | частично² | ✓ | ✓ | —³ | ✓ | папка/`yaak import` | `yaak` CLI |
+| insomnia v4 | ✓⁴ | ✓ | ✓ | ✓ | — | GUI | — |
+| insomnia-v5 | частично | ✓ | ✓ | ✓ | ✓ | папка/git sync | `inso` |
+| hoppscotch | ✓ | ✓ | ✓ | — | — | GUI | `hopp test` |
+| Kreya | — | — | — | — | — | импорт Postman (наш `postman`) | — |
+| HTTPie | — | — | — | — | — | — (нет формата коллекций у CLI) | сам CLI |
+
+¹ accessToken в definition.yaml перегенерируется; ² флага нет, шифрование при
+заполнении; ³ у form-строк Yaak нет description; ⁴ kvPairData `type: secret`
+(финализируется эталонным тестом).
 
 ## Параметры запуска
 
