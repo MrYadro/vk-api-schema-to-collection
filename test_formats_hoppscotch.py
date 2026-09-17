@@ -53,6 +53,21 @@ class TestHoppscotch(unittest.TestCase):
             self.assertEqual(h.matches(out / "x.json"), False)
             self.assertEqual(h.validate(out / "vk-api.hoppscotch.json"), (1, 1))
 
+    def test_validate_cli_env_labels(self):
+        import io
+        import sys
+        from contextlib import redirect_stdout
+        from unittest import mock
+        import validate_collection as v
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / "h"
+            h.write_hoppscotch(COLLECTION, out)
+            env_file = out / "api.vk.ru.hoppscotch.env.json"
+            buf = io.StringIO()
+            with redirect_stdout(buf), mock.patch.object(sys, "argv", ["validate_collection.py", str(env_file)]):
+                v.main()
+            self.assertIn("OK: hoppscotch environment, 4 variables", buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

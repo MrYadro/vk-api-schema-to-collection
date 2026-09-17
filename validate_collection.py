@@ -53,6 +53,10 @@ def main():
         print(f"OK: openapi 3.1, {paths} paths, {schemas} schemas, 0 schema violations")
         return None
     if spec.name == "hoppscotch":
+        if ".hoppscotch.env." in args.path.name:
+            _, values = spec.validate(args.path)
+            print(f"OK: hoppscotch environment, {values} variables, 0 structural violations")
+            return None
         folders, requests = spec.validate(args.path)
         print(f"OK: hoppscotch, {folders} folders, {requests} requests, 0 structural violations")
         return None
