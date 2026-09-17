@@ -1181,10 +1181,13 @@ MINI_METHODS = {
 }
 
 
-def write_mini_schema(root):
+MINI_METHODS_V2 = {"methods": [MINI_METHODS["methods"][0]]}
+
+
+def write_mini_schema(root, methods=MINI_METHODS):
     d = root / "users"
     d.mkdir(parents=True)
-    (d / "methods.json").write_text(json.dumps(MINI_METHODS, ensure_ascii=False), encoding="utf-8")
+    (d / "methods.json").write_text(json.dumps(methods, ensure_ascii=False), encoding="utf-8")
     return root
 
 
@@ -1240,8 +1243,8 @@ class TestMainFlags(unittest.TestCase):
             schema = write_mini_schema(root / "schema")
             out = root / "out"
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199"])
-            old_file = out / "Users" / "users_old.yml"
-            old_file.write_text("info:\n  name: users.old\n  type: http\n  seq: 99\n", encoding="utf-8")
+            old_file = out / "Users" / "users.removed.yml"
+            old_file.write_text("info:\n  name: users.removed\n  type: http\n  seq: 99\n", encoding="utf-8")
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199", "--prune"])
             self.assertFalse(old_file.exists())
             self.assertTrue((out / "Users" / "users.get.yml").exists())
@@ -1378,6 +1381,7 @@ class TestEndToEnd(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             schema = write_mini_schema(root / "schema")
+            schema_v2 = write_mini_schema(root / "schema2", MINI_METHODS_V2)
             out = root / "vk-api-local"
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "postman-v3", "--api-version", "5.199"])
             req_file = out / "postman" / "collections" / "VK API" / "Users" / "users.get.request.yaml"
@@ -1388,7 +1392,7 @@ class TestEndToEnd(unittest.TestCase):
             env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
             [x for x in env["values"] if x["key"] == "accessToken"][0]["value"] = "tok-v3"
             env_file.write_text(self.g.to_yaml(env), encoding="utf-8")
-            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge"])
+            run_main(["generate_collection.py", "--schema-dir", str(schema_v2), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge"])
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             rows = {r["key"]: r for r in doc["body"]["content"] if isinstance(r, dict)}
             self.assertEqual(rows["user_ids"]["value"], "1,2")
@@ -1399,13 +1403,13 @@ class TestEndToEnd(unittest.TestCase):
             self.assertTrue(old_file.exists())
             folders, requests = v.validate_postman_v3(out)
             self.assertEqual((folders, requests), (1, 2))
-            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge", "--prune"])
+            run_main(["generate_collection.py", "--schema-dir", str(schema_v2), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge", "--prune"])
             self.assertFalse(old_file.exists())
             folders, requests = v.validate_postman_v3(out)
             self.assertEqual((folders, requests), (1, 1))
 ```
 
-Примечание: mini-schema содержит `users.old`, поэтому после первой генерации (до prune) файл `users.old.request.yaml` существует; `validate_postman_v3` считает (folders, requests) по файлам.
+Примечание: первая генерация идёт по полной mini-schema (users.get + users.old), merge-прогоны — по сокращённой MINI_METHODS_V2 (только users.get): users.old становится old-only (в модели нет, файл на диске остаётся), prune-прогон его удаляет. `validate_postman_v3` считает (folders, requests) по файлам на диске.
 
 - [ ] **Step 2: Run test to verify it fails or passes honestly**
 
