@@ -62,6 +62,8 @@ dist/
 ```sh
 python3 generate_collection.py --format tree --merge       # обновить, сохранив правки
 python3 generate_collection.py --format postman-v3 --merge # то же для Postman Local View
+python3 generate_collection.py --format yaak --merge       # sync-папка Yaak
+python3 generate_collection.py --format insomnia-v5 --merge # Git Sync папка Insomnia
 python3 generate_collection.py --format tree --prune       # полная перегенерация + удалить устаревшие файлы
 ```
 
@@ -79,7 +81,7 @@ python3 generate_collection.py --format tree --prune       # полная пер
 | `fetch_parameter_descriptions.py` | Обходит методы через `documentation.getPage` dev-портала, кэш — `data/parameter_descriptions.json`. |
 | `generate_collection.py` | Строит коллекцию. |
 | `core.py` + `formats/` | Общее ядро генерации и модули форматов (точка расширения — см. «Как добавить формат вывода»). |
-| `validate_collection.py` | Валидирует сгенерированное по официальным JSON Schema: OpenCollection (tree/bundled), Postman (коллекция/окружение), OpenAPI 3.1; postman-v3 — структурные проверки. Формат определяется по пути. |
+| `validate_collection.py` | Валидирует сгенерированное: OpenCollection (tree/bundled), Postman (коллекция/окружение) и OpenAPI 3.1 — по официальным JSON Schema; postman-v3, yaak, insomnia (v4/v5), hoppscotch — структурные проверки. Формат определяется по пути. |
 
 ## Как добавить формат вывода
 
@@ -154,7 +156,7 @@ merge сохраняются.
 
 | Аргумент | Описание |
 | --- | --- |
-| `PATH` | Что валидировать: bundled `.yaml`, каталог `tree`, postman `.json` (коллекция/окружение), каталог `postman-v3`, openapi `.yaml`. Формат определяется по пути. |
+| `PATH` | Что валидировать: bundled `.yaml`, каталог `tree`, postman `.json` (коллекция/окружение), каталог `postman-v3`, openapi `.yaml`, каталог `yaak`, `*.insomnia.json` (v4), каталог insomnia-v5, файлы `*.hoppscotch.json` (коллекция/окружение). Формат определяется по пути. |
 | `--schema PATH` | Локальная JSON Schema вместо онлайн (opencollection). |
 
 Окружения: `VK_API_SCHEMA_DIR` — путь к клону vk-api-schema (по умолчанию `~/Dev/vk-api-schema`).
@@ -176,6 +178,6 @@ Workflow `.github/workflows/release.yml` (ручной запуск, Actions →
 
 - определяет версию API — из input или через `documentation.getLastVersion`;
 - клонирует vk-api-schema, обновляет кэш русских описаний;
-- собирает все форматы и валидирует по официальным JSON Schema (postman-v3 — структурные проверки);
-- пакует в три zip-артефакта: `opencollection.zip` (tree + bundled), `postman.zip` (коллекция v2.1 + окружение + `vk-api-local/` Native Git дерево), `openapi.zip`;
+- собирает все форматы и валидирует: OpenCollection/Postman/OpenAPI — по официальным JSON Schema; postman-v3, yaak, insomnia, hoppscotch — структурные проверки;
+- пакует в шесть zip-артефактов, по клиенту на файл: `opencollection.zip` (tree + bundled), `postman.zip` (коллекция v2.1 + окружение + `vk-api-local/` Native Git дерево), `openapi.zip`, `yaak.zip` (sync-папка), `insomnia.zip` (v4 JSON + v5 Git Sync папка), `hoppscotch.zip` (коллекция + окружение);
 - создаёт релиз `VK API <version>` с тегом `v<version>` (существующий тег не перезаписывается, если не включить `force`).
