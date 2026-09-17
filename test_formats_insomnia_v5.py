@@ -174,6 +174,22 @@ class TestInsomniaV5Merge(unittest.TestCase):
             doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
             self.assertEqual(get_first_param_value(doc), "1,2")
 
+    def test_merge_survives_unquoted_scalar_hand_edit(self):
+        import yaml
+        from core import to_yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema_dir = write_mini_schema(root / "schema")
+            out = root / "out"
+            run_main(["generate_collection.py", "--schema-dir", str(schema_dir), "--out", str(out), "--format", "insomnia-v5", "--api-version", "5.199"])
+            req_file = first_request_file(out)
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            set_first_param_value(doc, 123)
+            req_file.write_text(to_yaml(doc), encoding="utf-8")
+            run_main(["generate_collection.py", "--schema-dir", str(schema_dir), "--out", str(out), "--format", "insomnia-v5", "--api-version", "5.200", "--merge"])
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            self.assertEqual(get_first_param_value(doc), "123")
+
     def test_merge_updates_api_version_and_keeps_old_only(self):
         import yaml
         from core import to_yaml

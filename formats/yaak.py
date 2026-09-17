@@ -16,6 +16,14 @@ def _unyak(value):
     return FROM_YAAK.sub(lambda m: "{{" + m.group(1) + "}}", value)
 
 
+def _text(value):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
 def yaak_resources(collection):
     resources = []
     auth = collection["request"]["auth"]
@@ -115,19 +123,19 @@ def load_yaak(out):
         children = [r for r in requests if r.get("folderId") == folder.get("id")]
         items.append(
             {
-                "info": {"name": folder.get("name", ""), "type": "folder", "description": folder.get("description")},
+                "info": {"name": _text(folder.get("name")), "type": "folder", "description": folder.get("description")},
                 "request": {"auth": "inherit"},
                 "items": [
                     {
-                        "info": {"name": r.get("name", ""), "type": "http", "description": r.get("description")},
+                        "info": {"name": _text(r.get("name")), "type": "http", "description": r.get("description")},
                         "http": {
                             "method": r.get("method", "POST"),
-                            "url": _unyak(r.get("url", "")),
+                            "url": _unyak(_text(r.get("url"))),
                             "auth": "inherit",
                             "body": {
                                 "type": "form-urlencoded",
                                 "data": [
-                                    {"name": p["name"], "value": _unyak(p.get("value", "")), **({"disabled": True} if not p.get("enabled", True) else {})}
+                                    {"name": p["name"], "value": _unyak(_text(p.get("value"))), **({"disabled": True} if not p.get("enabled", True) else {})}
                                     for p in (r.get("body") or {}).get("form", [])
                                 ],
                             },
@@ -143,14 +151,14 @@ def load_yaak(out):
     for env in [d for d in docs if d.get("model") == "environment"]:
         envs.append(
             {
-                "name": env.get("name", ""),
-                "variables": [{"name": v["name"], "value": v.get("value", "")} for v in env.get("variables", [])],
+                "name": _text(env.get("name")),
+                "variables": [{"name": v["name"], "value": _text(v.get("value"))} for v in env.get("variables", [])],
             }
         )
     return {
         "opencollection": "1.0.0",
-        "info": {"name": workspace.get("name", ""), "description": workspace.get("description", "")},
-        "request": {"auth": {"type": "bearer", "token": _unyak((workspace.get("authentication") or {}).get("token", ""))}},
+        "info": {"name": _text(workspace.get("name")), "description": workspace.get("description", "")},
+        "request": {"auth": {"type": "bearer", "token": _unyak(_text((workspace.get("authentication") or {}).get("token")))}},
         "config": {"environments": envs},
         "items": items,
         "docs": workspace.get("description", ""),

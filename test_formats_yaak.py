@@ -70,6 +70,27 @@ class TestYaak(unittest.TestCase):
             self.assertEqual(doc["body"]["form"][0]["value"], "1,2")
             v_row = [r for r in doc["body"]["form"] if r["name"] == "v"][0]
             self.assertEqual(v_row["value"], "${[ env.apiVersion ]}")
+            env_doc = yaml.safe_load((out / "yaak.env_1.yaml").read_text(encoding="utf-8"))
+            api_row = [v for v in env_doc["variables"] if v["name"] == "apiVersion"][0]
+            self.assertEqual(api_row["value"], "5.200")
+
+    def test_merge_survives_unquoted_scalar_hand_edit(self):
+        from test_merge_collection import run_main, write_mini_schema
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema_dir = write_mini_schema(root / "schema")
+            out = root / "out"
+            run_main(["generate_collection.py", "--schema-dir", str(schema_dir), "--out", str(out), "--format", "yaak", "--api-version", "5.199"])
+            req_files = sorted(out.glob("yaak.rq_*.yaml"))
+            import yaml
+            from core import to_yaml
+            doc = yaml.safe_load(req_files[0].read_text(encoding="utf-8"))
+            doc["body"]["form"][0]["value"] = 123
+            req_files[0].write_text(to_yaml(doc), encoding="utf-8")
+            run_main(["generate_collection.py", "--schema-dir", str(schema_dir), "--out", str(out), "--format", "yaak", "--api-version", "5.200", "--merge"])
+            doc = yaml.safe_load(req_files[0].read_text(encoding="utf-8"))
+            self.assertEqual(doc["body"]["form"][0]["value"], "123")
 
     def test_prune(self):
         with tempfile.TemporaryDirectory() as tmp:
