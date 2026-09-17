@@ -15,7 +15,7 @@ class TestRegistry(unittest.TestCase):
     def test_formats_registered(self):
         self.assertEqual(
             sorted(FORMATS),
-            ["bundled", "hoppscotch", "insomnia", "openapi", "postman", "postman-v3", "tree"],
+            ["bundled", "hoppscotch", "insomnia", "openapi", "postman", "postman-v3", "tree", "yaak"],
         )
 
     def test_default_out_paths(self):
@@ -26,6 +26,7 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(FORMATS["openapi"].default_out, "dist/openapi/vk-api.yaml")
         self.assertEqual(FORMATS["hoppscotch"].default_out, "dist/hoppscotch")
         self.assertEqual(FORMATS["insomnia"].default_out, "dist/insomnia/vk-api.insomnia.json")
+        self.assertEqual(FORMATS["yaak"].default_out, "dist/yaak/vk-api")
 
     def test_stats_keys(self):
         self.assertEqual(FORMATS["tree"].stats_keys, ("folders", "requests"))
@@ -54,10 +55,11 @@ class TestMergeContract(unittest.TestCase):
     def test_merge_matrix(self):
         self.assertEqual(
             {n for n, s in FORMATS.items() if s.supports_merge},
-            {"tree", "bundled", "postman-v3"},
+            {"tree", "bundled", "postman-v3", "yaak"},
         )
         self.assertFalse(FORMATS["postman-v3"].keep_old_items)
         self.assertTrue(FORMATS["tree"].keep_old_items)
+        self.assertTrue(FORMATS["yaak"].keep_old_items)
 
     def test_merge_flag_rejected_for_postman_and_openapi(self):
         for fmt in ("postman", "openapi"):

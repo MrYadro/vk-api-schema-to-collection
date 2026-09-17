@@ -5,7 +5,7 @@ import sys
 
 from formats import FORMATS
 
-SNIFF_PRIORITY = ("openapi", "insomnia", "hoppscotch", "postman", "postman-v3", "bundled", "tree")
+SNIFF_PRIORITY = ("openapi", "insomnia", "hoppscotch", "postman", "postman-v3", "yaak", "bundled", "tree")
 
 
 def sniff_spec(path):
@@ -47,6 +47,10 @@ def main():
     if spec.name == "postman-v3":
         folders, requests = spec.validate(args.path)
         print(f"OK: postman v3 local, {folders} folders, {requests} requests, 0 structural violations")
+        return None
+    if spec.name == "yaak":
+        folders, requests = spec.validate(args.path)
+        print(f"OK: yaak, {folders} folders, {requests} requests, 0 structural violations")
         return None
     if spec.name == "openapi":
         paths, schemas = spec.validate(args.path)
