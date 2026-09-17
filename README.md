@@ -45,9 +45,44 @@ dist/
 
 | Скрипт | Назначение |
 | --- | --- |
-| `fetch_parameter_descriptions.py` | Обходит методы через `documentation.getPage` dev-портала, кэш — `data/parameter_descriptions.json`. Флаги: `--all`, `--rps`, `--method X`, `--schema-dir`. |
-| `generate_collection.py` | Строит коллекцию. Флаги: `--format tree\|bundled\|postman\|postman-v3\|openapi`, `--all`, `--api-version`, `--schema-dir`, `--descriptions`, `--out`. |
+| `fetch_parameter_descriptions.py` | Обходит методы через `documentation.getPage` dev-портала, кэш — `data/parameter_descriptions.json`. |
+| `generate_collection.py` | Строит коллекцию. |
 | `validate_collection.py` | Валидирует сгенерированное по официальным JSON Schema: OpenCollection (tree/bundled), Postman (коллекция/окружение), OpenAPI 3.1; postman-v3 — структурные проверки. Формат определяется по пути. |
+
+## Параметры запуска
+
+### generate_collection.py
+
+| Флаг | По умолчанию | Описание |
+| --- | --- | --- |
+| `--format` | `tree` | Формат вывода: `tree` \| `bundled` \| `postman` \| `postman-v3` \| `openapi`. |
+| `--out` | по формату (`dist/…`) | Путь вывода: каталог для `tree`/`postman-v3`, файл для остальных. |
+| `--schema-dir` | `~/Dev/vk-api-schema` | Путь к клону vk-api-schema (или переменная `VK_API_SCHEMA_DIR`). |
+| `--api-version` | `latest` | Версия API; `latest` — взять актуальную с dev-портала. |
+| `--name` | `VK API` | Имя коллекции. |
+| `--descriptions` | `data/parameter_descriptions.json` | Кэш русских описаний параметров с dev-портала. |
+| `--dump-json PATH` | — | Дополнительно выгрузить построенный объект коллекции в JSON. |
+
+### fetch_parameter_descriptions.py
+
+| Флаг | По умолчанию | Описание |
+| --- | --- | --- |
+| `--schema-dir` | `~/Dev/vk-api-schema` | Путь к клону vk-api-schema. |
+| `--out` | `data/parameter_descriptions.json` | Файл кэша описаний. |
+| `--api-version` | `5.190` | Версия API для запросов к dev-порталу. |
+| `--rps` | `3.0` | Ограничение запросов в секунду. |
+| `--limit N` | `0` (все) | Обновить только первые N отсутствующих методов. |
+| `--save-every N` | `50` | Сохранять кэш каждые N методов. |
+| `--method X` | — | Получить описание одного метода (для отладки). |
+| `--token-file PATH` | временный путь | Файл с токеном вместо анонимного токена dev-портала. |
+| `--use-file-token` | выкл | Принудительно использовать токен из `--token-file`. |
+
+### validate_collection.py
+
+| Аргумент | Описание |
+| --- | --- |
+| `PATH` | Что валидировать: bundled `.yaml`, каталог `tree`, postman `.json` (коллекция/окружение), каталог `postman-v3`, openapi `.yaml`. Формат определяется по пути. |
+| `--schema PATH` | Локальная JSON Schema вместо онлайн (opencollection). |
 
 Окружения: `VK_API_SCHEMA_DIR` — путь к клону vk-api-schema (по умолчанию `~/Dev/vk-api-schema`).
 Схема ищется в `$VK_API_SCHEMA_DIR/api_schema` или в корне клона.
