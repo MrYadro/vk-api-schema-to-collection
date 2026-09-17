@@ -1,4 +1,11 @@
 import copy
+import re
+
+V3_UNSAFE = re.compile(r"[/\\:]")
+
+
+def _norm_name(name):
+    return V3_UNSAFE.sub("_", name or "")
 
 
 def merge(new, old, prune=False, keep_old_items=True):
@@ -22,15 +29,39 @@ def merge(new, old, prune=False, keep_old_items=True):
         old_env = old_envs.get(env.get("name") or "")
         if old_env is not None:
             _merge_variables(env.get("variables") or [], old_env.get("variables") or [], stats)
-    old_requests = {}
-    for folder in old.get("items") or []:
-        for r in folder.get("items") or []:
-            old_requests[r.get("info", {}).get("name")] = r
-    for folder in merged.get("items") or []:
-        for req in folder.get("items") or []:
-            old_req = old_requests.get(req.get("info", {}).get("name"))
-            if old_req is not None:
-                _merge_request(req, old_req, stats)
+    old_folders = {}
+    for f in old.get("items") or []:
+        old_folders[_norm_name((f.get("info") or {}).get("name"))] = f
+    items = merged.get("items") or []
+    if items:
+        old_head = old_folders.pop(_norm_name((items[0].get("info") or {}).get("name")), None)
+        if old_head is not None:
+            _merge_folder(items[0], old_head, stats, prune, keep_old_items)
+    rest = items[1:]
+    for folder in rest:
+        old_folder = old_folders.pop(_norm_name((folder.get("info") or {}).get("name")), None)
+        if old_folder is None:
+            stats["added"] += 1 + len(folder.get("items") or [])
+        else:
+            _merge_folder(folder, old_folder, stats, prune, keep_old_items)
+    for old_folder in old_folders.values():
+        count = 1 + len(old_folder.get("items") or [])
+        if prune:
+            stats["pruned"] += count
+        else:
+            stats["kept"] += count
+            if keep_old_items:
+                rest.append(old_folder)
+    rest.sort(key=lambda f: (f.get("info") or {}).get("name") or "")
+    items = ([items[0]] if items else []) + rest
+    merged["items"] = items
+    for i, folder in enumerate(items):
+        folder.setdefault("info", {})["seq"] = i + 1
+        for j, req in enumerate(folder.get("items") or []):
+            req.setdefault("info", {})["seq"] = j + 1
+    for k, v in old.items():
+        if k not in merged:
+            merged[k] = copy.deepcopy(v)
     return merged, stats
 
 
@@ -83,6 +114,35 @@ def _merge_request(req, old_req, stats):
     old_body = (old_req.get("http") or {}).get("body") or {}
     if isinstance(body.get("data"), list) and isinstance(old_body.get("data"), list):
         body["data"] = _merge_rows(body["data"], old_body["data"], stats)
+
+
+def _merge_folder(folder, old_folder, stats, prune, keep_old_items):
+    old_requests = {}
+    for r in old_folder.get("items") or []:
+        old_requests[_norm_name((r.get("info") or {}).get("name"))] = r
+    out = []
+    for req in folder.get("items") or []:
+        old_req = old_requests.pop(_norm_name((req.get("info") or {}).get("name")), None)
+        if old_req is None:
+            stats["added"] += 1
+        else:
+            stats["updated"] += 1
+            _merge_request(req, old_req, stats)
+            for k, v in old_req.items():
+                if k not in req:
+                    req[k] = copy.deepcopy(v)
+        out.append(req)
+    for old_req in old_requests.values():
+        if prune:
+            stats["pruned"] += 1
+        else:
+            stats["kept"] += 1
+            if keep_old_items:
+                out.append(old_req)
+    folder["items"] = out
+    for k, v in old_folder.items():
+        if k != "items" and k not in folder:
+            folder[k] = copy.deepcopy(v)
 
 
 def _merge_variables(new_vars, old_vars, stats):

@@ -31,9 +31,9 @@ def new_collection():
     }
 
 
-def request_with_rows(rows):
+def request_with_rows(rows, name="users.get"):
     return {
-        "info": {"name": "users.get", "type": "http", "seq": 1},
+        "info": {"name": name, "type": "http", "seq": 1},
         "http": {
             "method": "POST",
             "url": "{{baseUrl}}/method/users.get",
@@ -191,3 +191,98 @@ class TestMergeVariables(unittest.TestCase):
         m.merge(self.new, old)
         self.assertEqual(self.new, snapshot_new)
         self.assertEqual(old, snapshot_old)
+
+
+class TestMergeItems(unittest.TestCase):
+    def test_match_by_name_and_user_keys_preserved(self):
+        new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old["items"][0]["items"][0]["bruno"] = {"scripts": {"post": "x"}}
+        old["items"][0]["mynote"] = "заметка"
+        merged, stats = m.merge(new, old)
+        req = merged["items"][0]["items"][0]
+        self.assertEqual(req["bruno"], {"scripts": {"post": "x"}})
+        self.assertEqual(merged["items"][0]["mynote"], "заметка")
+        self.assertEqual(stats["updated"], 1)
+
+    def test_old_only_request_kept_in_model(self):
+        new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old = collection_with(folder_with([
+            request_with_rows([{"name": "v", "value": "{{apiVersion}}"}]),
+            request_with_rows([{"name": "q", "value": ""}], name="users.old"),
+        ]))
+        merged, stats = m.merge(new, old)
+        names = [r["info"]["name"] for r in merged["items"][0]["items"]]
+        self.assertEqual(names, ["users.get", "users.old"])
+        self.assertEqual(stats["kept"], 1)
+
+    def test_old_only_request_not_in_model_when_partial(self):
+        new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old = collection_with(folder_with([
+            request_with_rows([{"name": "v", "value": "{{apiVersion}}"}]),
+            request_with_rows([{"name": "q", "value": ""}], name="users.old"),
+        ]))
+        merged, stats = m.merge(new, old, keep_old_items=False)
+        names = [r["info"]["name"] for r in merged["items"][0]["items"]]
+        self.assertEqual(names, ["users.get"])
+        self.assertEqual(stats["kept"], 1)
+
+    def test_prune_drops_old_only(self):
+        new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old = collection_with(folder_with([
+            request_with_rows([{"name": "v", "value": "{{apiVersion}}"}]),
+            request_with_rows([{"name": "q", "value": ""}], name="users.old"),
+        ]))
+        old_folder = folder_with([request_with_rows([{"name": "q", "value": ""}], name="ghost.method")])
+        old_folder["info"]["name"] = "Ghost"
+        old["items"].append(old_folder)
+        merged, stats = m.merge(new, old, prune=True)
+        names = [r["info"]["name"] for r in merged["items"][0]["items"]]
+        folder_names = [f["info"]["name"] for f in merged["items"]]
+        self.assertEqual(names, ["users.get"])
+        self.assertEqual(folder_names, ["Users"])
+        self.assertEqual(stats["pruned"], 3)
+
+    def test_meta_folder_head_not_duplicated(self):
+        new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        meta = {"info": {"name": "_Meta", "type": "folder", "seq": 1}, "items": [
+            {"info": {"name": "Проверка токена (users.get)", "type": "http", "seq": 1},
+             "http": {"body": {"type": "form-urlencoded", "data": [
+                 {"name": "fields", "value": "bdate", "disabled": True},
+                 {"name": "v", "value": "{{apiVersion}}"},
+             ]}}},
+        ]}
+        new["items"] = [meta, new["items"][0]]
+        old_meta = copy.deepcopy(meta)
+        old_meta["items"][0]["http"]["body"]["data"][0]["disabled"] = False
+        old = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old["items"] = [old_meta, old["items"][0]]
+        merged, stats = m.merge(new, old)
+        folder_names = [f["info"]["name"] for f in merged["items"]]
+        self.assertEqual(folder_names, ["_Meta", "Users"])
+        row = merged["items"][0]["items"][0]["http"]["body"]["data"][0]
+        self.assertNotIn("disabled", row)
+        self.assertEqual(stats["kept"], 0)
+
+    def test_resort_and_seq_renumber(self):
+        meta = {"info": {"name": "_Meta", "type": "folder"}, "items": []}
+        users = folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])])
+        wall = {"info": {"name": "Wall", "type": "folder"}, "items": []}
+        apps = {"info": {"name": "Apps", "type": "folder"}, "items": []}
+        new = collection_with(users)
+        new["items"] = [meta, users, wall]
+        old = collection_with(users)
+        old["items"] = [copy.deepcopy(users), copy.deepcopy(apps)]
+        merged, stats = m.merge(new, old)
+        self.assertEqual([f["info"]["name"] for f in merged["items"]], ["_Meta", "Apps", "Users", "Wall"])
+        self.assertEqual([f["info"]["seq"] for f in merged["items"]], [1, 2, 3, 4])
+        self.assertEqual(merged["items"][2]["items"][0]["info"]["seq"], 1)
+        self.assertEqual(stats["kept"], 1)
+        self.assertEqual(stats["added"], 1)
+
+    def test_collection_level_user_keys_preserved(self):
+        new = new_collection()
+        old = new_collection()
+        old["customtop"] = {"x": 1}
+        merged, _ = m.merge(new, old)
+        self.assertEqual(merged["customtop"], {"x": 1})
