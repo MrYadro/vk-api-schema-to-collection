@@ -140,16 +140,16 @@ python3 generate_collection.py --format tree --prune       # полная пер
 
 Срез на сентябрь 2026.
 
-| Формат | Секреты | Docs запроса | Docs папки | Param description | Тесты | Merge | Импорт | CLI |
+| Формат | Секреты | Docs запроса | Docs папки | Param description | Тесты | Merge | Импорт | CLI (headless) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tree (Bruno) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | папка (Bruno) | — |
-| bundled (OpenCollection) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
-| postman v2.1 | ✓ | ✓ | ✓ | ✓ | ✓ | — | GUI | — |
+| tree (Bruno) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | папка (Bruno) | `bru run` |
+| bundled (OpenCollection) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | файл (OpenCollection-клиенты) | — |
+| postman v2.1 | ✓ | ✓ | ✓ | ✓ | ✓ | — | GUI | `newman` |
 | postman-v3 (Native Git) | частично¹ | ✓ | ✓ | ✓ | ✓ | ✓ | папка (Postman) | — |
 | openapi | — | ✓ | — | ✓ | — | — | GUI/кодоген | — |
-| yaak | частично² | ✓ | ✓ | —³ | — | ✓⁵ | папка/`yaak import` | `yaak` CLI |
+| yaak | частично² | ✓ | ✓ | —³ | — | ✓⁵ | папка/`yaak import` | `yaak` (запросы) |
 | insomnia v4 | ✓⁴ | ✓ | ✓ | ✓ | ✓⁶ | — | GUI | — |
-| insomnia-v5 | частично | ✓ | ✓ | ✓ | ✓⁶ | ✓ | папка/git sync | `inso` |
+| insomnia-v5 | частично⁸ | ✓ | ✓ | ✓ | ✓⁶ | ✓ | папка/git sync | `inso` |
 | hoppscotch | ✓ | ✓ | ✓ | — | ✓⁷ | — | GUI | `hopp test` |
 
 ¹ accessToken в definition.yaml перегенерируется; ² флага нет, шифрование при
@@ -159,7 +159,13 @@ python3 generate_collection.py --format tree --prune       # полная пер
 merge сохраняются; ⁶ один скрипт на корневой папке — рантайм Insomnia
 наследует afterResponse-скрипты всех предков каждому запросу (проверено по
 исходникам network.ts); ⁷ папочного наследования в формате нет — скрипт у
-каждого запроса.
+каждого запроса; ⁸ у v5 нет пометки секрета у переменных — токены
+выгружаются пустыми значениями.
+
+Колонка «CLI (headless)» — запуск коллекции без GUI: `bru run`
+(@usebruno/cli), `newman` (Postman CLI-раннер), `inso run collection`,
+`hopp test`; `yaak` умеет отправлять отдельные запросы (`yaak request`),
+тест-раннера нет.
 
 ## Параметры запуска
 
