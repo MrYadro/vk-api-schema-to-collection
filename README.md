@@ -1,6 +1,6 @@
 # vk-api-schema-to-collection
 
-Генерация коллекций [Bruno](https://usebruno.com) / [OpenCollection](https://spec.opencollection.com) / [Postman](https://www.postman.com) / [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1) из публичной схемы [VKCOM/vk-api-schema](https://github.com/VKCOM/vk-api-schema).
+Генерация коллекций [Bruno](https://usebruno.com) / [OpenCollection](https://spec.opencollection.com) / [Postman](https://www.postman.com) / [Yaak](https://yaak.app) / [Insomnia](https://insomnia.rest) / [Hoppscotch](https://hoppscotch.io) и спецификации [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1) из публичной схемы [VKCOM/vk-api-schema](https://github.com/VKCOM/vk-api-schema).
 
 - Папки-категории, POST-запросы (`category.method` → папка `Category`)
 - Bearer-авторизация на коллекции (`{{accessToken}}`), запросы и папки наследуют auth
@@ -9,6 +9,9 @@
 - Русские описания методов и параметров с dev.vk.ru (фолбэк — английские из схемы)
 - Postman: коллекция v2.1 (JSON) + файл окружения `api.vk.ru`, автотест на коды ошибок VK через `pm.test`
 - Postman Native Git (Local View): дерево Collection V3 YAML (`postman/collections/…`) — открывается в Postman через Files → Open folder, Git-native
+- Yaak: sync-папка YAML (`yaak.<id>.yaml`) — Open Workspace или `yaak import`, git-native, с `--merge`
+- Insomnia: v4 JSON для GUI-импорта + v5 YAML Git Sync папка (headless `inso` CLI), v5 — с `--merge`
+- Hoppscotch: коллекция v12 + файл окружения с `secret`-переменными
 - OpenAPI 3.1: реальные JSON Schema параметров и ответов (`responses.json`), components/schemas с namespace по категориям, `VkError` для ошибок VK (HTTP 200)
 - Только stdlib Python 3 (для валидации — pyyaml + jsonschema)
 
@@ -38,13 +41,16 @@ dist/
 ├── openapi/           # OpenAPI 3.1 spec (Swagger UI / codegen)
 ├── yaak/              # sync-папка Yaak (yaak.<id>.yaml)
 ├── insomnia/          # vk-api.insomnia.json (v4 GUI-импорт); vk-api-local/ — Git Sync папка v5
-└── hoppscotch/        # коллекция vk-api.json + окружение api.vk.ru.env.json
+└── hoppscotch/        # коллекция vk-api.hoppscotch.json + окружение api.vk.ru.hoppscotch.env.json
 ```
 
 В Bruno: File → Open Collection → выбрать папку `dist/opencollection/vk-api`.
 В Postman: Import → File → `dist/postman/vk-api.postman_collection.json`, затем импортировать окружение
 `dist/postman/vk-api.postman_environment.json` и вписать токен в `accessToken`.
 В Postman Local View: Files → Open folder → `dist/postman/vk-api-local` (манифест `.postman/` Postman создаст сам).
+В Yaak: Open Workspace → `dist/yaak/vk-api`.
+В Insomnia: Import → `dist/insomnia/vk-api.insomnia.json` (v4) или Git Sync-папка `dist/insomnia/vk-api-local` (v5).
+В Hoppscotch: Collections → Import → `dist/hoppscotch/vk-api.hoppscotch.json`, затем окружение `api.vk.ru.hoppscotch.env.json`.
 Токен вписать в секретную переменную `accessToken` окружения `api.vk.ru`;
 `baseUrl` и `apiVersion` работают без выбора окружения (collection-level переменные).
 
