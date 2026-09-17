@@ -37,6 +37,7 @@ def build_collection(ctx):
 from formats import openapi as _openapi
 from formats import opencollection as _opencollection
 from formats import hoppscotch as _hoppscotch
+from formats import insomnia as _insomnia
 from formats import postman as _postman
 from formats import postman_v3 as _postman_v3
 
@@ -45,6 +46,7 @@ FORMATS = {
     "bundled": _opencollection.BUNDLED_SPEC,
     "postman": _postman.POSTMAN_SPEC,
     "hoppscotch": _hoppscotch.HOPPSCOTCH_SPEC,
+    "insomnia": _insomnia.INSOMNIA_SPEC,
     "openapi": _openapi.OPENAPI_SPEC,
     "postman-v3": _postman_v3.POSTMAN_V3_SPEC,
 }

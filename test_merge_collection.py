@@ -714,3 +714,10 @@ class TestCliPrintGolden(unittest.TestCase):
             schema = write_mini_schema(root / "schema")
             line = self.run_and_capture(["generate_collection.py", "--schema-dir", str(schema), "--out", str(root / "h"), "--format", "hoppscotch", "--api-version", "5.199"]).strip()
             self.assertTrue(re.fullmatch(r"format=hoppscotch folders=\d+ requests=\d+ files=\d+ collisions=\d+ encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \+\d+ environment file\(s\) \(\d+\.\d MB\)", line), line)
+
+    def test_insomnia_print(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            line = self.run_and_capture(["generate_collection.py", "--schema-dir", str(schema), "--out", str(root / "i.json"), "--format", "insomnia", "--api-version", "5.199"]).strip()
+            self.assertTrue(re.fullmatch(r"format=insomnia folders=\d+ requests=\d+ files=\d+ collisions=\d+ encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \(\d+\.\d MB\)", line), line)
