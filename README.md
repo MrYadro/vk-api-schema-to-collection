@@ -122,11 +122,14 @@ python3 generate_collection.py --format tree --prune       # полная пер
   `--merge` пользовательские значения защищаются (см. «Обновление существующей
   коллекции»).
 - **Автотесты**: скрипт проверки кодов ошибок VK (HTTP 200 + поле `error`,
-  подсказки по частым кодам) пишется во все форматы с поддержкой scripting —
+  подсказки по частым кодам) пишется во все форматы с поддержкой scripting,
   в диалекте клиента: Bruno `test/expect`, Postman `pm.test`,
-  Insomnia `insomnia.test` — один скрипт на корневой папке, наследуется всеми
-  запросами; Hoppscotch `pw.test` (`testScript` у каждого запроса — папочного
-  наследования в формате нет). Yaak и OpenAPI scripting не поддерживают.
+  Insomnia `insomnia.test`, Hoppscotch `pw.test`. Размещение — один раз на
+  самом верхнем уровне, где формат позволяет, с наследованием всеми запросами:
+  коллекция (OpenCollection, Postman v2.1/v3), корневая папка (Insomnia —
+  afterResponse наследуется от всех предков). Исключение — Hoppscotch: в формате
+  нет папочного наследования, скрипт у каждого запроса. Yaak и OpenAPI
+  scripting не поддерживают.
 - **Цвет**: окружения несут VK-blue `#0077FF` из модели везде, где формат
   позволяет (OpenCollection/insomnia v4+v5/yaak — hex; Postman v2.1/v3 — hue 212,
   цветовое колесо Postman); hoppscotch и openapi цветов окружений не поддерживают.
