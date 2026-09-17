@@ -22,8 +22,8 @@ def main():
     parser.add_argument("--all", action="store_true", help="include nodoc/hidden methods (default: public only)")
     parser.add_argument("--descriptions", default=SCRIPT_DIR / "data/parameter_descriptions.json", help="RU descriptions cache from dev portal")
     parser.add_argument("--dump-json", type=pathlib.Path, help="also dump the built object as JSON for verification")
-    parser.add_argument("--merge", action="store_true", help="update existing output instead of replacing (tree, bundled, postman-v3)")
-    parser.add_argument("--prune", action="store_true", help="delete requests and folders absent from the new schema (tree, bundled, postman-v3)")
+    parser.add_argument("--merge", action="store_true", help="update existing output instead of replacing (tree, bundled, postman-v3, yaak, insomnia-v5)")
+    parser.add_argument("--prune", action="store_true", help="delete requests and folders absent from the new schema (tree, bundled, postman-v3, yaak, insomnia-v5)")
     args = parser.parse_args()
     spec = FORMATS[args.format]
     if args.schema_dir is None:
