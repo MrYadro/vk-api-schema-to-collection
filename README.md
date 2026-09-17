@@ -121,6 +121,9 @@ python3 generate_collection.py --format tree --prune       # полная пер
 - **Переменные**: `baseUrl` и `apiVersion` всегда из свежей генерации; при
   `--merge` пользовательские значения защищаются (см. «Обновление существующей
   коллекции»).
+- **Цвет**: окружения несут VK-blue `#0077FF` из модели везде, где формат
+  позволяет (OpenCollection/insomnia v4+v5/yaak — hex; Postman v2.1/v3 — hue 212,
+  цветовое колесо Postman); hoppscotch и openapi цветов окружений не поддерживают.
 - **Описания**: markdown-документация запроса и папки (`docs` модели) попадает
   в поле description формата, если оно есть.
 
