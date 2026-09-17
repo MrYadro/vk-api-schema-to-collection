@@ -38,6 +38,8 @@ class TestInsomnia(unittest.TestCase):
         kv = {v["name"]: v for v in env.get("kvPairData", [])}
         self.assertEqual(kv["accessToken"]["type"], "secret")
         self.assertEqual(kv["baseUrl"]["type"], "str")
+        self.assertEqual(env["name"], "api.vk.ru")
+        self.assertEqual(env["color"], "#0077FF")
 
     def test_write_matches_validate(self):
         with tempfile.TemporaryDirectory() as tmp:
