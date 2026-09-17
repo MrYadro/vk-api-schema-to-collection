@@ -307,6 +307,9 @@ def _merge_request(req, old_req, stats):
     old_body = (old_req.get("http") or {}).get("body") or {}
     if isinstance(body.get("data"), list) and isinstance(old_body.get("data"), list):
         body["data"] = _merge_rows(body["data"], old_body["data"], stats)
+    for k, v in old_req.get("http", {}).items():
+        if k != "body" and k not in req["http"]:
+            req["http"][k] = copy.deepcopy(v)
 
 
 def _merge_folder(folder, old_folder, stats, prune, keep_old_items, sort_items=True):

@@ -210,6 +210,22 @@ class TestMergeItems(unittest.TestCase):
         self.assertEqual(merged["items"][0]["mynote"], "заметка")
         self.assertEqual(stats["updated"], 1)
 
+    def test_user_http_keys_preserved(self):
+        new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old["items"][0]["items"][0]["http"]["headers"] = {"X-Debug": "1"}
+        old["items"][0]["items"][0]["http"]["url"] = "{{baseUrl}}/method/old.url"
+        merged, _ = m.merge(new, old)
+        http = merged["items"][0]["items"][0]["http"]
+        self.assertEqual(http["headers"], {"X-Debug": "1"})
+        self.assertEqual(http["url"], "{{baseUrl}}/method/users.get")
+
+    def test_v3_unsafe_regex_synced_with_writer(self):
+        import generate_collection as g
+        names = ["Users", "a/b", "c\\d", "e:f", "Проверка", "execute (песочница)", "x y"]
+        for name in names:
+            self.assertEqual(m.V3_UNSAFE.sub("_", name), g.POSTMAN_V3_UNSAFE_FILENAME.sub("_", name))
+
     def test_old_only_request_kept_in_model(self):
         new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
         old = collection_with(folder_with([
@@ -542,6 +558,39 @@ class TestMainFlags(unittest.TestCase):
             env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
             self.assertEqual([v for v in env["variables"] if v["name"] == "accessToken"][0]["value"], "tok")
             self.assertEqual([v for v in env["variables"] if v["name"] == "apiVersion"][0]["value"], "5.200")
+
+    def test_merge_without_existing_output_generates_fresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            out = root / "out"
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199", "--merge"])
+            self.assertTrue((out / "opencollection.yml").is_file())
+            self.assertTrue((out / "Users" / "users.get.yml").is_file())
+
+    def test_tree_merge_integration_preserves_user_edits(self):
+        import generate_collection as g
+        import yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            out = root / "out"
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199"])
+            req_file = out / "Users" / "users.get.yml"
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            doc["http"]["body"]["data"][0]["disabled"] = True
+            doc["http"]["body"]["data"].insert(1, {"name": "custom", "value": "42"})
+            req_file.write_text(g.to_yaml(doc), encoding="utf-8")
+            custom_file = out / "Users" / "my.request.yml"
+            custom_file.write_text(g.to_yaml({"info": {"name": "my.request", "type": "http", "seq": 99}, "http": {"method": "POST", "url": "{{baseUrl}}/method/my.request", "auth": "inherit", "body": {"type": "form-urlencoded", "data": [{"name": "v", "value": "{{apiVersion}}"}]}}}), encoding="utf-8")
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199", "--merge"])
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            rows = {r["name"]: r for r in doc["http"]["body"]["data"]}
+            self.assertTrue(rows["user_ids"].get("disabled") is True)
+            self.assertEqual(rows["custom"]["value"], "42")
+            self.assertTrue(custom_file.is_file())
+            merged_doc = yaml.safe_load(custom_file.read_text(encoding="utf-8"))
+            self.assertEqual(merged_doc["info"]["name"], "my.request")
 
     def test_prune_without_merge_removes_stray_files(self):
         with tempfile.TemporaryDirectory() as tmp:
