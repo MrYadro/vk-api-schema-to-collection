@@ -15,7 +15,7 @@ class TestRegistry(unittest.TestCase):
     def test_formats_registered(self):
         self.assertEqual(
             sorted(FORMATS),
-            ["bundled", "hoppscotch", "insomnia", "openapi", "postman", "postman-v3", "tree", "yaak"],
+            ["bundled", "hoppscotch", "insomnia", "insomnia-v5", "openapi", "postman", "postman-v3", "tree", "yaak"],
         )
 
     def test_default_out_paths(self):
@@ -26,6 +26,7 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(FORMATS["openapi"].default_out, "dist/openapi/vk-api.yaml")
         self.assertEqual(FORMATS["hoppscotch"].default_out, "dist/hoppscotch")
         self.assertEqual(FORMATS["insomnia"].default_out, "dist/insomnia/vk-api.insomnia.json")
+        self.assertEqual(FORMATS["insomnia-v5"].default_out, "dist/insomnia/vk-api-local")
         self.assertEqual(FORMATS["yaak"].default_out, "dist/yaak/vk-api")
 
     def test_stats_keys(self):

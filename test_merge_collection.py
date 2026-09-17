@@ -728,3 +728,10 @@ class TestCliPrintGolden(unittest.TestCase):
             schema = write_mini_schema(root / "schema")
             line = self.run_and_capture(["generate_collection.py", "--schema-dir", str(schema), "--out", str(root / "i.json"), "--format", "insomnia", "--api-version", "5.199"]).strip()
             self.assertTrue(re.fullmatch(r"format=insomnia folders=\d+ requests=\d+ files=\d+ collisions=\d+ encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \(\d+\.\d MB\)", line), line)
+
+    def test_insomnia_v5_print(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            line = self.run_and_capture(["generate_collection.py", "--schema-dir", str(schema), "--out", str(root / "i5"), "--format", "insomnia-v5", "--api-version", "5.199"]).strip()
+            self.assertIsNotNone(re.fullmatch(r"format=insomnia-v5 folders=\d+ requests=\d+ files=\d+ collisions=\d+ encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \(\d+\.\d MB\)", line), line)

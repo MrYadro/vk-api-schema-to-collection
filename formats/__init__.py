@@ -38,6 +38,7 @@ from formats import openapi as _openapi
 from formats import opencollection as _opencollection
 from formats import hoppscotch as _hoppscotch
 from formats import insomnia as _insomnia
+from formats import insomnia_v5 as _insomnia_v5
 from formats import postman as _postman
 from formats import postman_v3 as _postman_v3
 from formats import yaak as _yaak
@@ -51,4 +52,5 @@ FORMATS = {
     "openapi": _openapi.OPENAPI_SPEC,
     "postman-v3": _postman_v3.POSTMAN_V3_SPEC,
     "yaak": _yaak.YAAK_SPEC,
+    "insomnia-v5": _insomnia_v5.INSOMNIA_V5_SPEC,
 }
