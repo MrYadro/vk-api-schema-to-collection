@@ -1044,7 +1044,7 @@ class TestPruneOrphans(unittest.TestCase):
             (ghost / "folder.yml").write_text(self.g.to_yaml({"info": {"name": "Ghost", "type": "folder", "seq": 50}}), encoding="utf-8")
             removed = m.prune_orphans(out, "tree", TREE_COLLECTION)
             removed_names = sorted(p.name for p in removed)
-            self.assertIn("users.old.yml", removed_names)
+            self.assertIn("users_old.yml", removed_names)
             self.assertIn("Ghost", removed_names)
             self.assertFalse((users_dir / "users.old.yml").exists())
             self.assertFalse(ghost.exists())
