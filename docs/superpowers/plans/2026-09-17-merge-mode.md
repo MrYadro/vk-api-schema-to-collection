@@ -213,9 +213,9 @@ git commit -m "merge_collection: value-slot rules for env and collection variabl
 Добавить в `test_merge_collection.py`:
 
 ```python
-def request_with_rows(rows):
+def request_with_rows(rows, name="users.get"):
     return {
-        "info": {"name": "users.get", "type": "http", "seq": 1},
+        "info": {"name": name, "type": "http", "seq": 1},
         "http": {
             "method": "POST",
             "url": "{{baseUrl}}/method/users.get",
@@ -447,7 +447,7 @@ class TestMergeItems(unittest.TestCase):
         new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
         old = collection_with(folder_with([
             request_with_rows([{"name": "v", "value": "{{apiVersion}}"}]),
-            request_with_rows([{"name": "users.old", "value": ""}]),
+            request_with_rows([{"name": "q", "value": ""}], name="users.old"),
         ]))
         merged, stats = m.merge(new, old)
         names = [r["info"]["name"] for r in merged["items"][0]["items"]]
@@ -458,7 +458,7 @@ class TestMergeItems(unittest.TestCase):
         new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
         old = collection_with(folder_with([
             request_with_rows([{"name": "v", "value": "{{apiVersion}}"}]),
-            request_with_rows([{"name": "users.old", "value": ""}]),
+            request_with_rows([{"name": "q", "value": ""}], name="users.old"),
         ]))
         merged, stats = m.merge(new, old, keep_old_items=False)
         names = [r["info"]["name"] for r in merged["items"][0]["items"]]
@@ -469,9 +469,9 @@ class TestMergeItems(unittest.TestCase):
         new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
         old = collection_with(folder_with([
             request_with_rows([{"name": "v", "value": "{{apiVersion}}"}]),
-            request_with_rows([{"name": "users.old", "value": ""}]),
+            request_with_rows([{"name": "q", "value": ""}], name="users.old"),
         ]))
-        old_folder = folder_with([request_with_rows([{"name": "ghost.method", "value": ""}])])
+        old_folder = folder_with([request_with_rows([{"name": "q", "value": ""}], name="ghost.method")])
         old_folder["info"]["name"] = "Ghost"
         old["items"].append(old_folder)
         merged, stats = m.merge(new, old, prune=True)
@@ -479,7 +479,7 @@ class TestMergeItems(unittest.TestCase):
         folder_names = [f["info"]["name"] for f in merged["items"]]
         self.assertEqual(names, ["users.get"])
         self.assertEqual(folder_names, ["Users"])
-        self.assertEqual(stats["pruned"], 2)
+        self.assertEqual(stats["pruned"], 3)
 
     def test_meta_folder_head_not_duplicated(self):
         new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
