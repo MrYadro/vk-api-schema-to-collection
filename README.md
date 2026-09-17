@@ -100,7 +100,7 @@ python3 generate_collection.py --format tree --prune       # полная пер
 
 ## Сравнение форматов
 
-Срез на сентябрь 2026; Kreya и HTTPie не входят в генератор — см. строки.
+Срез на сентябрь 2026.
 
 | Формат | Секреты | Docs запроса | Docs папки | Param description | Merge | Импорт | CLI |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -113,8 +113,6 @@ python3 generate_collection.py --format tree --prune       # полная пер
 | insomnia v4 | ✓⁴ | ✓ | ✓ | ✓ | — | GUI | — |
 | insomnia-v5 | частично | ✓ | ✓ | ✓ | ✓ | папка/git sync | `inso` |
 | hoppscotch | ✓ | ✓ | ✓ | — | — | GUI | `hopp test` |
-| Kreya | — | — | — | — | — | импорт Postman (наш `postman`) | — |
-| HTTPie | — | — | — | — | — | — (нет формата коллекций у CLI) | сам CLI |
 
 ¹ accessToken в definition.yaml перегенерируется; ² флага нет, шифрование при
 заполнении; ³ у form-строк Yaak нет description; ⁴ kvPairData `type: secret`
