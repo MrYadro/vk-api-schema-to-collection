@@ -1402,14 +1402,14 @@ class TestEndToEnd(unittest.TestCase):
             old_file = out / "postman" / "collections" / "VK API" / "Users" / "users.old.request.yaml"
             self.assertTrue(old_file.exists())
             folders, requests = v.validate_postman_v3(out)
-            self.assertEqual((folders, requests), (1, 2))
+            self.assertEqual((folders, requests), (2, 4))
             run_main(["generate_collection.py", "--schema-dir", str(schema_v2), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge", "--prune"])
             self.assertFalse(old_file.exists())
             folders, requests = v.validate_postman_v3(out)
-            self.assertEqual((folders, requests), (1, 1))
+            self.assertEqual((folders, requests), (2, 3))
 ```
 
-Примечание: первая генерация идёт по полной mini-schema (users.get + users.old), merge-прогоны — по сокращённой MINI_METHODS_V2 (только users.get): users.old становится old-only (в модели нет, файл на диске остаётся), prune-прогон его удаляет. `validate_postman_v3` считает (folders, requests) по файлам на диске.
+Примечание: первая генерация идёт по полной mini-schema (users.get + users.old), merge-прогоны — по сокращённой MINI_METHODS_V2 (только users.get): users.old становится old-only (в модели нет, файл на диске остаётся), prune-прогон его удаляет. `validate_postman_v3` считает (folders, requests) по файлам на диске; build() всегда добавляет папку _Meta с двумя запросами, поэтому ожидания (2,4) до prune (2+2 meta+users.get+users.old) и (2,3) после (stale users.old удалён). В тестах, читающих yaml, импортируй yaml локально в методе.
 
 - [ ] **Step 2: Run test to verify it fails or passes honestly**
 
