@@ -6,6 +6,22 @@ from formats import FormatSpec, build_collection
 
 VAR_PATTERN = re.compile(r"\{\{\s*([^{}\s][^{}]*?)\s*\}\}")
 
+VK_ERROR_HINTS = "{5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'}"
+
+INSOMNIA_TEST_SCRIPT = f"""const body = insomnia.response.json();
+if (body && typeof body === 'object' && body.error) {{
+  const hints = {VK_ERROR_HINTS};
+  const e = body.error;
+  const hint = hints[e.error_code] ? ` — ${{hints[e.error_code]}}` : '';
+  insomnia.test(`VK error ${{e.error_code}}${{hint}}: ${{e.error_msg}}`, () => {{
+    throw new Error(`VK API вернул ошибку ${{e.error_code}}: ${{e.error_msg}}${{hint}}`);
+  }});
+}} else {{
+  insomnia.test('VK API: без ошибок', () => {{
+    insomnia.expect(body && body.error).to.not.exist;
+  }});
+}}"""
+
 
 def _var(value):
     return VAR_PATTERN.sub(r"{{ \1 }}", value)
@@ -80,6 +96,7 @@ def to_insomnia(collection):
                     "body": {"mimeType": "application/x-www-form-urlencoded", "params": _params(http.get("body", {}).get("data", []))},
                     "description": req.get("docs") or req["info"].get("description") or "",
                     "metaSortKey": j * 1000,
+                    "afterResponseScript": INSOMNIA_TEST_SCRIPT,
                 }
             )
     return {"_type": "export", "__export_format": 4, "resources": resources}

@@ -6,6 +6,22 @@ from formats import FormatSpec, build_collection
 INHERIT = {"authType": "inherit", "authActive": True}
 CONTENT_TYPES = {"form-urlencoded": "application/x-www-form-urlencoded"}
 
+VK_ERROR_HINTS = "{5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'}"
+
+HOPPSCOTCH_TEST_SCRIPT = f"""const body = pw.response.body;
+if (body && typeof body === 'object' && body.error) {{
+  const hints = {VK_ERROR_HINTS};
+  const e = body.error;
+  const hint = hints[e.error_code] ? ` — ${{hints[e.error_code]}}` : '';
+  pw.test(`VK error ${{e.error_code}}${{hint}}: ${{e.error_msg}}`, () => {{
+    throw new Error(`VK API вернул ошибку ${{e.error_code}}: ${{e.error_msg}}${{hint}}`);
+  }});
+}} else {{
+  pw.test('VK API: без ошибок', () => {{
+    pw.expect(body && body.error).toBe(undefined);
+  }});
+}}"""
+
 
 def _var(value):
     return value.replace("{{", "<<").replace("}}", ">>")
@@ -30,7 +46,7 @@ def hoppscotch_request(req):
         "requestVariables": [],
         "responses": {},
         "preRequestScript": "",
-        "testScript": "",
+        "testScript": HOPPSCOTCH_TEST_SCRIPT,
         "description": req.get("docs") or info.get("description") or "",
     }
 

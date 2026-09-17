@@ -31,6 +31,8 @@ class TestInsomnia(unittest.TestCase):
         req = [r for r in doc["resources"] if r["_type"] == "request"][0]
         self.assertEqual(req["method"], "POST")
         self.assertEqual(req["metaSortKey"], 1000)
+        self.assertTrue(req["afterResponseScript"].startswith("const body = insomnia.response.json();"))
+        self.assertIn("insomnia.test(", req["afterResponseScript"])
         self.assertEqual(req["url"], "{{ baseUrl }}/method/users.get")
         self.assertEqual(req["body"]["mimeType"], "application/x-www-form-urlencoded")
         params = req["body"]["params"]

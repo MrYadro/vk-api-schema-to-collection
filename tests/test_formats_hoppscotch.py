@@ -29,6 +29,8 @@ class TestHoppscotch(unittest.TestCase):
         )
         self.assertEqual(req["description"], COLLECTION["items"][0]["items"][0]["docs"])
         self.assertEqual(req["auth"], {"authType": "inherit", "authActive": True})
+        self.assertIn("pw.test(", req["testScript"])
+        self.assertIn("pw.response.body", req["testScript"])
 
     def test_environment_secrets(self):
         envs = h.to_hoppscotch_environments(COLLECTION)

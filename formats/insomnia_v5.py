@@ -3,6 +3,7 @@ import re
 
 from core import require_yaml, to_yaml
 from formats import FormatSpec, build_collection
+from formats import insomnia
 
 VAR_PATTERN = re.compile(r"\{\{\s*([^{}\s][^{}]*?)\s*\}\}")
 
@@ -48,6 +49,7 @@ def _v5_request(req, folder_idx, idx):
             "description": req.get("docs") or req["info"].get("description") or "",
             "sortKey": idx * 1000,
         },
+        "scripts": {"afterResponse": insomnia.INSOMNIA_TEST_SCRIPT},
         "method": http["method"],
         "url": _var(http["url"]),
         "body": {

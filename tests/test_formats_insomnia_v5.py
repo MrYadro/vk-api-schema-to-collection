@@ -109,6 +109,7 @@ class TestInsomniaV5(unittest.TestCase):
         self.assertEqual(req["name"], "users.get")
         self.assertEqual(req["method"], "POST")
         self.assertEqual(req["meta"]["sortKey"], 1000)
+        self.assertTrue(req["scripts"]["afterResponse"].startswith("const body = insomnia.response.json();"))
         self.assertEqual(req["url"], "{{ baseUrl }}/method/users.get")
         self.assertEqual(req["body"]["mimeType"], "application/x-www-form-urlencoded")
         params = req["body"]["params"]
