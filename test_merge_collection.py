@@ -31,6 +31,112 @@ def new_collection():
     }
 
 
+def request_with_rows(rows):
+    return {
+        "info": {"name": "users.get", "type": "http", "seq": 1},
+        "http": {
+            "method": "POST",
+            "url": "{{baseUrl}}/method/users.get",
+            "auth": "inherit",
+            "body": {"type": "form-urlencoded", "data": rows},
+        },
+    }
+
+
+def folder_with(reqs):
+    return {"info": {"name": "Users", "type": "folder", "seq": 2}, "request": {"auth": "inherit"}, "items": reqs}
+
+
+def collection_with(folder):
+    c = new_collection()
+    c["items"] = [folder]
+    return c
+
+
+class TestMergeRows(unittest.TestCase):
+    def test_user_value_wins_on_diff(self):
+        new = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": "", "disabled": True, "description": "новое"},
+            {"name": "v", "value": "{{apiVersion}}"},
+        ])]))
+        old = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": "bdate", "disabled": True, "description": "старое"},
+            {"name": "v", "value": "{{apiVersion}}"},
+        ])]))
+        merged, stats = m.merge(new, old)
+        data = merged["items"][0]["items"][0]["http"]["body"]["data"]
+        self.assertEqual(data[0]["value"], "bdate")
+        self.assertEqual(data[0]["description"], "новое")
+        self.assertEqual(stats["preserved_values"], 1)
+
+    def test_equal_value_replaced_silently(self):
+        new = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": "", "disabled": True},
+        ])]))
+        old = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": "", "disabled": True},
+        ])]))
+        _, stats = m.merge(new, old)
+        self.assertEqual(stats["preserved_values"], 0)
+        self.assertEqual(stats["preserved_disabled"], 0)
+
+    def test_user_disabled_state_wins(self):
+        new = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": "", "disabled": True},
+        ])]))
+        old = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": ""},
+        ])]))
+        merged, stats = m.merge(new, old)
+        row = merged["items"][0]["items"][0]["http"]["body"]["data"][0]
+        self.assertNotIn("disabled", row)
+        self.assertEqual(stats["preserved_disabled"], 1)
+
+    def test_enum_group_matched_by_value(self):
+        new = collection_with(folder_with([request_with_rows([
+            {"name": "sort", "value": "name", "disabled": True},
+            {"name": "sort", "value": "date", "disabled": True},
+            {"name": "sort", "value": "id", "disabled": True},
+            {"name": "v", "value": "{{apiVersion}}"},
+        ])]))
+        old = collection_with(folder_with([request_with_rows([
+            {"name": "sort", "value": "name", "disabled": True},
+            {"name": "sort", "value": "date"},
+            {"name": "v", "value": "{{apiVersion}}"},
+        ])]))
+        merged, _ = m.merge(new, old)
+        data = merged["items"][0]["items"][0]["http"]["body"]["data"]
+        sorts = [r for r in data if r["name"] == "sort"]
+        self.assertEqual([r["value"] for r in sorts], ["name", "date", "id"])
+        self.assertEqual([r.get("disabled", False) for r in sorts], [True, False, True])
+        self.assertEqual(data[-1]["name"], "v")
+
+    def test_old_only_row_kept_before_v(self):
+        new = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": "", "disabled": True},
+            {"name": "v", "value": "{{apiVersion}}"},
+        ])]))
+        old = collection_with(folder_with([request_with_rows([
+            {"name": "fields", "value": "", "disabled": True},
+            {"name": "custom", "value": "42", "description": "моё"},
+            {"name": "v", "value": "{{apiVersion}}"},
+        ])]))
+        merged, _ = m.merge(new, old)
+        data = merged["items"][0]["items"][0]["http"]["body"]["data"]
+        self.assertEqual([r["name"] for r in data], ["fields", "custom", "v"])
+        self.assertEqual(data[1]["value"], "42")
+
+    def test_missing_old_body_untouched(self):
+        new = collection_with(folder_with([request_with_rows([
+            {"name": "v", "value": "{{apiVersion}}"},
+        ])]))
+        old = collection_with(folder_with([{"info": {"name": "users.get", "type": "http", "seq": 1}}]))
+        merged, stats = m.merge(new, old)
+        data = merged["items"][0]["items"][0]["http"]["body"]["data"]
+        self.assertEqual(data, [{"name": "v", "value": "{{apiVersion}}"}])
+        self.assertEqual(stats["preserved_values"], 0)
+
+
 class TestMergeVariables(unittest.TestCase):
     def setUp(self):
         self.new = new_collection()
