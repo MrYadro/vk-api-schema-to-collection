@@ -124,8 +124,9 @@ python3 generate_collection.py --format tree --prune       # полная пер
 - **Автотесты**: скрипт проверки кодов ошибок VK (HTTP 200 + поле `error`,
   подсказки по частым кодам) пишется во все форматы с поддержкой scripting —
   в диалекте клиента: Bruno `test/expect`, Postman `pm.test`,
-  Insomnia `insomnia.test` (afterResponse у каждого запроса),
-  Hoppscotch `pw.test` (`testScript`). Yaak и OpenAPI scripting не поддерживают.
+  Insomnia `insomnia.test` — один скрипт на корневой папке, наследуется всеми
+  запросами; Hoppscotch `pw.test` (`testScript` у каждого запроса — папочного
+  наследования в формате нет). Yaak и OpenAPI scripting не поддерживают.
 - **Цвет**: окружения несут VK-blue `#0077FF` из модели везде, где формат
   позволяет (OpenCollection/insomnia v4+v5/yaak — hex; Postman v2.1/v3 — hue 212,
   цветовое колесо Postman); hoppscotch и openapi цветов окружений не поддерживают.
@@ -136,23 +137,26 @@ python3 generate_collection.py --format tree --prune       # полная пер
 
 Срез на сентябрь 2026.
 
-| Формат | Секреты | Docs запроса | Docs папки | Param description | Merge | Импорт | CLI |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| tree (Bruno) | ✓ | ✓ | ✓ | ✓ | ✓ | папка (Bruno) | — |
-| bundled (OpenCollection) | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
-| postman v2.1 | ✓ | ✓ | ✓ | ✓ | — | GUI | — |
-| postman-v3 (Native Git) | частично¹ | ✓ | ✓ | ✓ | ✓ | папка (Postman) | — |
-| openapi | — | ✓ | — | ✓ | — | GUI/кодоген | — |
-| yaak | частично² | ✓ | ✓ | —³ | ✓⁵ | папка/`yaak import` | `yaak` CLI |
-| insomnia v4 | ✓⁴ | ✓ | ✓ | ✓ | — | GUI | — |
-| insomnia-v5 | частично | ✓ | ✓ | ✓ | ✓ | папка/git sync | `inso` |
-| hoppscotch | ✓ | ✓ | ✓ | — | — | GUI | `hopp test` |
+| Формат | Секреты | Docs запроса | Docs папки | Param description | Тесты | Merge | Импорт | CLI |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| tree (Bruno) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | папка (Bruno) | — |
+| bundled (OpenCollection) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
+| postman v2.1 | ✓ | ✓ | ✓ | ✓ | ✓ | — | GUI | — |
+| postman-v3 (Native Git) | частично¹ | ✓ | ✓ | ✓ | ✓ | ✓ | папка (Postman) | — |
+| openapi | — | ✓ | — | ✓ | — | — | GUI/кодоген | — |
+| yaak | частично² | ✓ | ✓ | —³ | — | ✓⁵ | папка/`yaak import` | `yaak` CLI |
+| insomnia v4 | ✓⁴ | ✓ | ✓ | ✓ | ✓⁶ | — | GUI | — |
+| insomnia-v5 | частично | ✓ | ✓ | ✓ | ✓⁶ | ✓ | папка/git sync | `inso` |
+| hoppscotch | ✓ | ✓ | ✓ | — | ✓⁷ | — | GUI | `hopp test` |
 
 ¹ accessToken в definition.yaml перегенерируется; ² флага нет, шифрование при
 заполнении; ³ у form-строк Yaak нет description; ⁴ kvPairData `type: secret`
 (финализируется эталонным тестом); ⁵ id файлов yaak позиционные: вставка метода
 в середину схемы пересчитывает суффиксы — ожидайте diff-шум в git, данные при
-merge сохраняются.
+merge сохраняются; ⁶ один скрипт на корневой папке — рантайм Insomnia
+наследует afterResponse-скрипты всех предков каждому запросу (проверено по
+исходникам network.ts); ⁷ папочного наследования в формате нет — скрипт у
+каждого запроса.
 
 ## Параметры запуска
 
