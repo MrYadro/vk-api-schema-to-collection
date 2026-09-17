@@ -1,7 +1,27 @@
 import copy
+import pathlib
 import re
 
 V3_UNSAFE = re.compile(r"[/\\:]")
+
+
+def _require_yaml():
+    try:
+        import yaml
+    except ImportError:
+        raise SystemExit("--merge/--prune need PyYAML: pip install pyyaml")
+    return yaml
+
+
+def load_bundled(path):
+    path = pathlib.Path(path)
+    if not path.is_file():
+        return None
+    doc = _require_yaml().safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(doc, dict):
+        return None
+    doc.pop("bundled", None)
+    return doc
 
 
 def _norm_name(name):

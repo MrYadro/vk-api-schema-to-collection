@@ -1,4 +1,6 @@
 import copy
+import pathlib
+import tempfile
 import unittest
 
 import merge_collection as m
@@ -302,3 +304,24 @@ class TestMergeItems(unittest.TestCase):
         old["customtop"] = {"x": 1}
         merged, _ = m.merge(new, old)
         self.assertEqual(merged["customtop"], {"x": 1})
+
+
+class TestLoadBundled(unittest.TestCase):
+    def setUp(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml required")
+        import generate_collection as g
+        self.g = g
+
+    def test_round_trip(self):
+        doc = {**new_collection(), "bundled": True}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "c.yaml"
+            path.write_text(self.g.to_yaml(doc), encoding="utf-8")
+            loaded = m.load_bundled(path)
+            self.assertEqual(loaded, new_collection())
+
+    def test_missing_file_returns_none(self):
+        self.assertIsNone(m.load_bundled(pathlib.Path("/nonexistent/c.yaml")))
