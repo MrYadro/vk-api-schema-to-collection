@@ -280,6 +280,22 @@ class TestMergeItems(unittest.TestCase):
         self.assertEqual(stats["kept"], 1)
         self.assertEqual(stats["added"], 1)
 
+    def test_requests_resorted_but_meta_head_kept_curated_order(self):
+        new = collection_with(folder_with([request_with_rows([{"name": "v", "value": "{{apiVersion}}"}])]))
+        old = collection_with(folder_with([
+            request_with_rows([{"name": "v", "value": "{{apiVersion}}"}]),
+            request_with_rows([{"name": "q", "value": ""}], name="users.aaa"),
+        ]))
+        meta_first = {"info": {"name": "zz_first", "type": "http", "seq": 1}, "http": {"body": {"data": []}}}
+        meta_second = {"info": {"name": "aa_second", "type": "http", "seq": 2}, "http": {"body": {"data": []}}}
+        meta = {"info": {"name": "_Meta", "type": "folder", "seq": 1}, "items": [meta_first, meta_second]}
+        new["items"] = [meta, new["items"][0]]
+        old["items"] = [copy.deepcopy(meta), old["items"][0]]
+        merged, _ = m.merge(new, old)
+        self.assertEqual([r["info"]["name"] for r in merged["items"][1]["items"]], ["users.aaa", "users.get"])
+        self.assertEqual([r["info"]["name"] for r in merged["items"][0]["items"]], ["zz_first", "aa_second"])
+        self.assertEqual([r["info"]["seq"] for r in merged["items"][0]["items"]], [1, 2])
+
     def test_collection_level_user_keys_preserved(self):
         new = new_collection()
         old = new_collection()

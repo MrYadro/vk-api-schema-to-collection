@@ -36,7 +36,7 @@ def merge(new, old, prune=False, keep_old_items=True):
     if items:
         old_head = old_folders.pop(_norm_name((items[0].get("info") or {}).get("name")), None)
         if old_head is not None:
-            _merge_folder(items[0], old_head, stats, prune, keep_old_items)
+            _merge_folder(items[0], old_head, stats, prune, keep_old_items, sort_items=False)
     rest = items[1:]
     for folder in rest:
         old_folder = old_folders.pop(_norm_name((folder.get("info") or {}).get("name")), None)
@@ -116,7 +116,7 @@ def _merge_request(req, old_req, stats):
         body["data"] = _merge_rows(body["data"], old_body["data"], stats)
 
 
-def _merge_folder(folder, old_folder, stats, prune, keep_old_items):
+def _merge_folder(folder, old_folder, stats, prune, keep_old_items, sort_items=True):
     old_requests = {}
     for r in old_folder.get("items") or []:
         old_requests[_norm_name((r.get("info") or {}).get("name"))] = r
@@ -140,6 +140,8 @@ def _merge_folder(folder, old_folder, stats, prune, keep_old_items):
             if keep_old_items:
                 out.append(old_req)
     folder["items"] = out
+    if sort_items:
+        folder["items"].sort(key=lambda r: _norm_name((r.get("info") or {}).get("name")))
     for k, v in old_folder.items():
         if k != "items" and k not in folder:
             folder[k] = copy.deepcopy(v)
