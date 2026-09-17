@@ -32,7 +32,7 @@ jobs:
           if [ -n "${{ inputs.api_version }}" ]; then
             VERSION="${{ inputs.api_version }}"
           else
-            VERSION=$(python3 -c "import generate_collection as g; print(g.get_latest_api_version())")
+            VERSION=$(python3 -c "import core; print(core.get_latest_api_version())")
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "VK API version: $VERSION"
