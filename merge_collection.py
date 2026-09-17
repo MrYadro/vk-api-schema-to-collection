@@ -1,6 +1,7 @@
 import copy
 import pathlib
 import re
+import shutil
 
 V3_UNSAFE = re.compile(r"[/\\:]")
 
@@ -141,6 +142,63 @@ def load_existing(out_path, fmt):
 
 def _norm_name(name):
     return V3_UNSAFE.sub("_", name or "")
+
+
+def _keep_index(collection):
+    keep = {}
+    for folder in collection.get("items") or []:
+        key = _norm_name((folder.get("info") or {}).get("name"))
+        keep[key] = {_norm_name((r.get("info") or {}).get("name")) for r in folder.get("items") or []}
+    return keep
+
+
+def prune_orphans(out_path, fmt, collection):
+    out_path = pathlib.Path(out_path)
+    removed = []
+    keep = _keep_index(collection)
+    if fmt == "tree":
+        if not out_path.is_dir():
+            return removed
+        yaml = _require_yaml()
+        for d in sorted(p for p in out_path.iterdir() if p.is_dir() and p.name != "environments"):
+            folder_name = _norm_name(d.name)
+            folder_file = d / "folder.yml"
+            if folder_file.is_file():
+                doc = yaml.safe_load(folder_file.read_text(encoding="utf-8")) or {}
+                folder_name = _norm_name((doc.get("info") or {}).get("name") or d.name)
+            keep_requests = keep.get(folder_name)
+            if keep_requests is None:
+                shutil.rmtree(d)
+                removed.append(d)
+                continue
+            for f in sorted(d.glob("*.yml")):
+                if f.name == "folder.yml":
+                    continue
+                doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+                req_name = _norm_name((doc.get("info") or {}).get("name") or f.stem)
+                if req_name not in keep_requests:
+                    f.unlink()
+                    removed.append(f)
+    elif fmt == "postman-v3":
+        collections_dir = out_path / "postman" / "collections"
+        if not collections_dir.is_dir():
+            return removed
+        for coll_dir in sorted(collections_dir.iterdir()):
+            if not coll_dir.is_dir():
+                continue
+            for d in sorted(coll_dir.iterdir()):
+                if not d.is_dir() or d.name == ".resources":
+                    continue
+                keep_requests = keep.get(_norm_name(d.name))
+                if keep_requests is None:
+                    shutil.rmtree(d)
+                    removed.append(d)
+                    continue
+                for f in sorted(d.glob("*.request.yaml")):
+                    if _norm_name(f.name[: -len(".request.yaml")]) not in keep_requests:
+                        f.unlink()
+                        removed.append(f)
+    return removed
 
 
 def merge(new, old, prune=False, keep_old_items=True):

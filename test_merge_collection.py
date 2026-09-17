@@ -412,3 +412,57 @@ class TestLoadExistingDispatch(unittest.TestCase):
             path = pathlib.Path(tmp) / "c.yaml"
             path.write_text("info:\n  name: x\n", encoding="utf-8")
             self.assertIsNotNone(m.load_existing(path, "bundled"))
+
+
+def write_stray_tree_request(folder_dir, name):
+    doc = {
+        "info": {"name": name, "type": "http", "seq": 99},
+        "http": {"method": "POST", "url": "{{baseUrl}}/method/" + name, "body": {"type": "form-urlencoded", "data": [{"name": "v", "value": "{{apiVersion}}"}]}},
+    }
+    import generate_collection as g
+    (folder_dir / (name.replace(".", "_") + ".yml")).write_text(g.to_yaml(doc), encoding="utf-8")
+
+
+class TestPruneOrphans(unittest.TestCase):
+    def setUp(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml required")
+        import generate_collection as g
+        self.g = g
+
+    def test_tree_removes_stray_request_and_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / "vk-api"
+            self.g.write_tree(TREE_COLLECTION, out)
+            users_dir = out / "Users"
+            write_stray_tree_request(users_dir, "users.old")
+            ghost = out / "Ghost"
+            ghost.mkdir()
+            (ghost / "folder.yml").write_text(self.g.to_yaml({"info": {"name": "Ghost", "type": "folder", "seq": 50}}), encoding="utf-8")
+            removed = m.prune_orphans(out, "tree", TREE_COLLECTION)
+            removed_names = sorted(p.name for p in removed)
+            self.assertIn("users_old.yml", removed_names)
+            self.assertIn("Ghost", removed_names)
+            self.assertFalse((users_dir / "users.old.yml").exists())
+            self.assertFalse(ghost.exists())
+            self.assertTrue((users_dir / "folder.yml").exists())
+
+    def test_postman_v3_removes_stray_request_and_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            self.g.write_postman_v3(TREE_COLLECTION, out)
+            users_dir = out / "postman" / "collections" / "VK API" / "Users"
+            stray = users_dir / "users.old.request.yaml"
+            stray.write_text(self.g.to_yaml({"$kind": "http-request", "url": "x", "method": "POST", "body": {"type": "urlencoded", "content": []}}), encoding="utf-8")
+            ghost = out / "postman" / "collections" / "VK API" / "Ghost"
+            ghost.mkdir()
+            removed = m.prune_orphans(out, "postman-v3", TREE_COLLECTION)
+            self.assertFalse(stray.exists())
+            self.assertFalse(ghost.exists())
+            self.assertEqual(len(removed), 2)
+            self.assertTrue((users_dir / "users.get.request.yaml").exists())
+
+    def test_bundled_noop(self):
+        self.assertEqual(m.prune_orphans(pathlib.Path("/nonexistent/c.yaml"), "bundled", {}), [])
