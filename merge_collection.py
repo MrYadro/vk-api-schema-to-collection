@@ -64,6 +64,81 @@ def load_tree(out_dir):
     return collection
 
 
+def load_postman_v3(out_dir):
+    out_dir = pathlib.Path(out_dir)
+    root = out_dir / "postman"
+    if not root.is_dir():
+        return None
+    yaml = _require_yaml()
+    items = []
+    variables = []
+    envs = []
+    collections_dir = root / "collections"
+    if collections_dir.is_dir():
+        for coll_dir in sorted(collections_dir.iterdir()):
+            if not coll_dir.is_dir():
+                continue
+            def_file = coll_dir / ".resources" / "definition.yaml"
+            if def_file.is_file():
+                doc = yaml.safe_load(def_file.read_text(encoding="utf-8")) or {}
+                for name, value in (doc.get("variables") or {}).items():
+                    variables.append({"name": name, "value": value})
+            for d in sorted(coll_dir.iterdir()):
+                if not d.is_dir() or d.name == ".resources":
+                    continue
+                requests = []
+                for f in sorted(d.glob("*.request.yaml")):
+                    doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+                    rows = []
+                    for row in ((doc.get("body") or {}).get("content") or []):
+                        if not isinstance(row, dict):
+                            continue
+                        out_row = {"name": row.get("key") or "", "value": row.get("value") or ""}
+                        if "disabled" in row:
+                            out_row["disabled"] = row["disabled"]
+                        if row.get("description"):
+                            out_row["description"] = row["description"]
+                        rows.append(out_row)
+                    requests.append(
+                        {
+                            "info": {"name": f.name[: -len(".request.yaml")], "type": "http"},
+                            "http": {"body": {"type": "form-urlencoded", "data": rows}},
+                        }
+                    )
+                if requests:
+                    items.append({"info": {"name": d.name, "type": "folder"}, "items": requests})
+    env_dir = root / "environments"
+    if env_dir.is_dir():
+        for f in sorted(env_dir.glob("*.environment.yaml")):
+            doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+            envs.append(
+                {
+                    "name": doc.get("name") or f.name[: -len(".environment.yaml")],
+                    "variables": [
+                        {"name": v.get("key") or "", "value": v.get("value") or ""}
+                        for v in doc.get("values") or []
+                        if isinstance(v, dict)
+                    ],
+                }
+            )
+    return {
+        "info": {"name": "VK API"},
+        "request": {"variables": variables},
+        "config": {"environments": envs},
+        "items": items,
+    }
+
+
+def load_existing(out_path, fmt):
+    if fmt == "bundled":
+        return load_bundled(out_path)
+    if fmt == "tree":
+        return load_tree(out_path)
+    if fmt == "postman-v3":
+        return load_postman_v3(out_path)
+    return None
+
+
 def _norm_name(name):
     return V3_UNSAFE.sub("_", name or "")
 

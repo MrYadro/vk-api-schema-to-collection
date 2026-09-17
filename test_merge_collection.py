@@ -372,3 +372,43 @@ class TestLoadTree(unittest.TestCase):
 
     def test_missing_dir_returns_none(self):
         self.assertIsNone(m.load_tree(pathlib.Path("/nonexistent/vk-api")))
+
+
+class TestLoadPostmanV3(unittest.TestCase):
+    def setUp(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml required")
+        import generate_collection as g
+        self.g = g
+
+    def test_partial_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp)
+            self.g.write_postman_v3(TREE_COLLECTION, out)
+            loaded = m.load_postman_v3(out)
+            folder = loaded["items"][0]
+            self.assertEqual(folder["info"]["name"], "Users")
+            self.assertEqual([r["info"]["name"] for r in folder["items"]], ["users.get", "users.search"])
+            self.assertEqual(
+                folder["items"][0]["http"]["body"]["data"],
+                TREE_COLLECTION["items"][0]["items"][0]["http"]["body"]["data"],
+            )
+            env = loaded["config"]["environments"][0]
+            self.assertEqual(env["name"], "api.vk.ru")
+            self.assertEqual([v["name"] for v in env["variables"]], ["baseUrl", "apiVersion", "accessToken", "groupToken"])
+            var_values = {v["name"]: v["value"] for v in loaded["request"]["variables"]}
+            self.assertEqual(var_values["baseUrl"], "https://api.vk.ru")
+
+    def test_missing_dir_returns_none(self):
+        self.assertIsNone(m.load_postman_v3(pathlib.Path("/nonexistent/vk-api-local")))
+
+
+class TestLoadExistingDispatch(unittest.TestCase):
+    def test_dispatch(self):
+        self.assertIsNone(m.load_existing(pathlib.Path("/nonexistent"), "openapi"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "c.yaml"
+            path.write_text("info:\n  name: x\n", encoding="utf-8")
+            self.assertIsNotNone(m.load_existing(path, "bundled"))
