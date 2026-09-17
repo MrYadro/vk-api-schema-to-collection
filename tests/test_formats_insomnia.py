@@ -23,6 +23,8 @@ class TestInsomnia(unittest.TestCase):
         root = [g for g in groups if g["parentId"] == "__WORKSPACE_ID__"][0]
         self.assertEqual(root["name"], "VK API")
         self.assertEqual(root["metaSortKey"], 0)
+        self.assertTrue(root["afterResponseScript"].startswith("const body = insomnia.response.json();"))
+        self.assertIn("insomnia.test(", root["afterResponseScript"])
         self.assertEqual(root["authentication"]["type"], "bearer")
         self.assertEqual(root["authentication"]["token"], "{{ accessToken }}")
         folder = [g for g in groups if g["parentId"] != "__WORKSPACE_ID__"][0]
@@ -31,8 +33,7 @@ class TestInsomnia(unittest.TestCase):
         req = [r for r in doc["resources"] if r["_type"] == "request"][0]
         self.assertEqual(req["method"], "POST")
         self.assertEqual(req["metaSortKey"], 1000)
-        self.assertTrue(req["afterResponseScript"].startswith("const body = insomnia.response.json();"))
-        self.assertIn("insomnia.test(", req["afterResponseScript"])
+        self.assertNotIn("afterResponseScript", req)
         self.assertEqual(req["url"], "{{ baseUrl }}/method/users.get")
         self.assertEqual(req["body"]["mimeType"], "application/x-www-form-urlencoded")
         params = req["body"]["params"]

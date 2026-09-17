@@ -49,7 +49,6 @@ def _v5_request(req, folder_idx, idx):
             "description": req.get("docs") or req["info"].get("description") or "",
             "sortKey": idx * 1000,
         },
-        "scripts": {"afterResponse": insomnia.INSOMNIA_TEST_SCRIPT},
         "method": http["method"],
         "url": _var(http["url"]),
         "body": {
@@ -96,6 +95,7 @@ def to_insomnia_v5(collection):
     root = {
         "name": collection["info"]["name"],
         "meta": {"id": "__GRP_0__", "description": collection.get("docs") or "", "sortKey": 0},
+        "scripts": {"afterResponse": insomnia.INSOMNIA_TEST_SCRIPT},
         "authentication": {
             "type": "bearer",
             "token": _var(collection["request"]["auth"]["token"]),

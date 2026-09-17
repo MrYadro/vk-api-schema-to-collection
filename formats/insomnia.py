@@ -69,6 +69,7 @@ def to_insomnia(collection):
             "name": collection["info"]["name"],
             "description": collection.get("docs") or "",
             "metaSortKey": 0,
+            "afterResponseScript": INSOMNIA_TEST_SCRIPT,
             "authentication": {"type": "bearer", "token": _var(collection["request"]["auth"]["token"]), "prefix": ""},
         }
     )
@@ -96,7 +97,6 @@ def to_insomnia(collection):
                     "body": {"mimeType": "application/x-www-form-urlencoded", "params": _params(http.get("body", {}).get("data", []))},
                     "description": req.get("docs") or req["info"].get("description") or "",
                     "metaSortKey": j * 1000,
-                    "afterResponseScript": INSOMNIA_TEST_SCRIPT,
                 }
             )
     return {"_type": "export", "__export_format": 4, "resources": resources}

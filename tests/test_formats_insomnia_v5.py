@@ -100,6 +100,7 @@ class TestInsomniaV5(unittest.TestCase):
         )
         self.assertEqual(root["meta"]["description"], "# VK API\n\nКоллекция методов VK API.")
         self.assertEqual(root["meta"]["sortKey"], 0)
+        self.assertTrue(root["scripts"]["afterResponse"].startswith("const body = insomnia.response.json();"))
         users = root["children"][0]
         self.assertEqual(users["name"], "Users")
         self.assertNotIn("method", users)
@@ -109,7 +110,7 @@ class TestInsomniaV5(unittest.TestCase):
         self.assertEqual(req["name"], "users.get")
         self.assertEqual(req["method"], "POST")
         self.assertEqual(req["meta"]["sortKey"], 1000)
-        self.assertTrue(req["scripts"]["afterResponse"].startswith("const body = insomnia.response.json();"))
+        self.assertNotIn("scripts", req)
         self.assertEqual(req["url"], "{{ baseUrl }}/method/users.get")
         self.assertEqual(req["body"]["mimeType"], "application/x-www-form-urlencoded")
         params = req["body"]["params"]
