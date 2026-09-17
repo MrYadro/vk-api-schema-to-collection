@@ -112,6 +112,30 @@ jobs:
             --format openapi \
             --out "vk-api-${{ steps.version.outputs.version }}.openapi.yaml"
 
+      - name: Generate client collections
+        if: ${{ steps.existing.outputs.exists != 'true' }}
+        run: |
+          python3 generate_collection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format yaak \
+            --out vk-api-yaak
+          python3 generate_collection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format insomnia \
+            --out "vk-api-${{ steps.version.outputs.version }}.insomnia.json"
+          python3 generate_collection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format insomnia-v5 \
+            --out vk-api-insomnia-local
+          python3 generate_collection.py \
+            --schema-dir /tmp/vk-api-schema \
+            --api-version "${{ steps.version.outputs.version }}" \
+            --format hoppscotch \
+            --out vk-api-hoppscotch
+
       - name: Validate
         if: ${{ steps.existing.outputs.exists != 'true' }}
         run: |
@@ -122,6 +146,11 @@ jobs:
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.postman_environment.json"
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.openapi.yaml"
           python3 validate_collection.py vk-api-local
+          python3 validate_collection.py vk-api-yaak
+          python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.insomnia.json"
+          python3 validate_collection.py vk-api-insomnia-local
+          python3 validate_collection.py vk-api-hoppscotch/vk-api.hoppscotch.json
+          python3 validate_collection.py vk-api-hoppscotch/api.vk.ru.hoppscotch.env.json
 
       - name: Package artifacts
         if: ${{ steps.existing.outputs.exists != 'true' }}
@@ -132,6 +161,10 @@ jobs:
           zip -q "vk-api-${V}.postman.zip" "vk-api-${V}.postman_collection.json" "vk-api-${V}.postman_environment.json"
           zip -qr "vk-api-${V}.postman.zip" vk-api-local
           zip -q "vk-api-${V}.openapi.zip" "vk-api-${V}.openapi.yaml"
+          zip -qr "vk-api-${V}.clients.zip" vk-api-yaak
+          zip -q "vk-api-${V}.clients.zip" "vk-api-${V}.insomnia.json"
+          zip -qr "vk-api-${V}.clients.zip" vk-api-insomnia-local
+          zip -qr "vk-api-${V}.clients.zip" vk-api-hoppscotch
           unzip -l "vk-api-${V}.opencollection.zip" | head -5
 
       - name: Create release
@@ -146,9 +179,11 @@ jobs:
             - `vk-api-${{ steps.version.outputs.version }}.opencollection.zip` — OpenCollection: tree (Bruno: *File → Open Collection*) + bundled YAML
             - `vk-api-${{ steps.version.outputs.version }}.postman.zip` — Postman: коллекция v2.1 + окружение `api.vk.ru` + `vk-api-local/` (Native Git дерево V3: Files → Open folder)
             - `vk-api-${{ steps.version.outputs.version }}.openapi.zip` — OpenAPI 3.1 (Swagger UI / codegen / Postman import)
+            - `vk-api-${{ steps.version.outputs.version }}.clients.zip` — клиентские коллекции: Yaak (`vk-api-yaak/`, sync-папка), Insomnia v4 (`.insomnia.json`, GUI-импорт) + v5 (`vk-api-insomnia-local/`, git-sync папка), Hoppscotch (`vk-api-hoppscotch/`, коллекция + окружение)
 
             Auth: collection-level Bearer `{{accessToken}}`; `baseUrl`/`apiVersion` are collection variables.
           files: |
             vk-api-${{ steps.version.outputs.version }}.opencollection.zip
             vk-api-${{ steps.version.outputs.version }}.postman.zip
             vk-api-${{ steps.version.outputs.version }}.openapi.zip
+            vk-api-${{ steps.version.outputs.version }}.clients.zip
