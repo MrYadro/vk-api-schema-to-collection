@@ -56,11 +56,12 @@ class TestMergeContract(unittest.TestCase):
     def test_merge_matrix(self):
         self.assertEqual(
             {n for n, s in FORMATS.items() if s.supports_merge},
-            {"tree", "bundled", "postman-v3", "yaak"},
+            {"tree", "bundled", "postman-v3", "yaak", "insomnia-v5"},
         )
         self.assertFalse(FORMATS["postman-v3"].keep_old_items)
         self.assertTrue(FORMATS["tree"].keep_old_items)
         self.assertTrue(FORMATS["yaak"].keep_old_items)
+        self.assertTrue(FORMATS["insomnia-v5"].keep_old_items)
 
     def test_merge_flag_rejected_for_postman_and_openapi(self):
         for fmt in ("postman", "openapi"):

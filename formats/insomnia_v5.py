@@ -15,6 +15,10 @@ def _var(value):
     return VAR_PATTERN.sub(r"{{ \1 }}", value)
 
 
+def _unvar(value):
+    return VAR_PATTERN.sub(r"{{\1}}", value)
+
+
 def _params(rows):
     out = []
     for r in rows:
@@ -110,6 +114,127 @@ def write_insomnia_v5(collection, out):
     return 1, ""
 
 
+def _load_rows(params):
+    rows = []
+    for p in params or []:
+        if not isinstance(p, dict):
+            continue
+        row = {"name": p.get("name") or "", "value": _unvar(p.get("value") or "")}
+        if p.get("description"):
+            row["description"] = p["description"]
+        if p.get("disabled"):
+            row["disabled"] = True
+        rows.append(row)
+    return rows
+
+
+def _load_request(req):
+    meta = req.get("meta") or {}
+    info = {"name": req.get("name") or "", "type": "http"}
+    if meta.get("description"):
+        info["description"] = meta["description"]
+    body = req.get("body") or {}
+    return {
+        "info": info,
+        "http": {
+            "method": req.get("method") or "POST",
+            "url": _unvar(req.get("url") or ""),
+            "auth": "inherit",
+            "body": {"type": "form-urlencoded", "data": _load_rows(body.get("params"))},
+        },
+        "docs": meta.get("description") or "",
+    }
+
+
+def _load_folder(folder):
+    meta = folder.get("meta") or {}
+    info = {"name": folder.get("name") or "", "type": "folder"}
+    if meta.get("description"):
+        info["description"] = meta["description"]
+    return {
+        "info": info,
+        "request": {"auth": "inherit"},
+        "items": [
+            _load_request(child)
+            for child in folder.get("children") or []
+            if isinstance(child, dict) and "method" in child
+        ],
+        "docs": meta.get("description") or "",
+    }
+
+
+def _load_env_variables(node):
+    data = node.get("data") or {}
+    order = (node.get("dataPropertyOrder") or {}).get("&") or []
+    ordered = [k for k in order if isinstance(k, str) and k in data]
+    ordered += [k for k in data if k not in set(ordered)]
+    return [{"name": k, "value": data.get(k) or ""} for k in ordered]
+
+
+def _load_environments(envs):
+    environments = []
+    for sub in envs.get("subEnvironments") or []:
+        if not isinstance(sub, dict):
+            continue
+        env = {"name": sub.get("name") or "", "variables": _load_env_variables(sub)}
+        if sub.get("color"):
+            env["color"] = sub["color"]
+        environments.append(env)
+    if envs.get("data"):
+        environments.append(
+            {"name": envs.get("name") or "Base Environment", "variables": _load_env_variables(envs)}
+        )
+    return environments
+
+
+def load_insomnia_v5(out):
+    out = pathlib.Path(out)
+    files = sorted(f for f in out.glob("insomnia.*.yaml") if f.is_file())
+    if not files:
+        return None
+    docs = []
+    for f in files:
+        doc = require_yaml().safe_load(f.read_text(encoding="utf-8"))
+        if isinstance(doc, dict) and doc.get("type") == TYPE and isinstance(doc.get("collection"), list) and doc["collection"]:
+            docs.append(doc)
+    if not docs:
+        return None
+    root = docs[0]["collection"][0]
+    if not isinstance(root, dict):
+        return None
+    items = []
+    for doc in docs:
+        nodes = [n for n in doc["collection"] if isinstance(n, dict)]
+        groups = nodes[0].get("children") or [] if len(nodes) == 1 else nodes[1:]
+        items.extend(_load_folder(g) for g in groups if isinstance(g, dict) and "method" not in g)
+    meta = root.get("meta") or {}
+    auth = root.get("authentication") or {}
+    envs_doc = next((d.get("environments") for d in docs if isinstance(d.get("environments"), dict)), {})
+    return {
+        "opencollection": "1.0.0",
+        "info": {"name": root.get("name") or ""},
+        "request": {"auth": {"type": auth.get("type") or "bearer", "token": _unvar(auth.get("token") or "")}},
+        "config": {"environments": _load_environments(envs_doc)},
+        "items": items,
+        "docs": meta.get("description") or "",
+    }
+
+
+def insomnia_v5_prune_orphans(out, collection):
+    out = pathlib.Path(out)
+    keep = out / FILE_NAME
+    removed = []
+    for f in sorted(out.rglob("*.yaml")):
+        if not f.is_file() or f == keep:
+            continue
+        with f.open(encoding="utf-8") as fh:
+            if TYPE not in fh.readline():
+                continue
+        f.unlink()
+        removed.append(f)
+    return removed
+
+
 def matches(path):
     path = pathlib.Path(path)
     if not path.is_dir():
@@ -159,6 +284,10 @@ INSOMNIA_V5_SPEC = FormatSpec(
     model_based=True,
     build=build_collection,
     write=write_insomnia_v5,
+    supports_merge=True,
+    load_existing=load_insomnia_v5,
+    prune_orphans=insomnia_v5_prune_orphans,
+    keep_old_items=True,
     matches=matches,
     validate=validate,
 )
