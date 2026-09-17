@@ -1037,11 +1037,15 @@ def main():
     parser.add_argument("--all", action="store_true", help="include nodoc/hidden methods (default: public only)")
     parser.add_argument("--descriptions", default=SCRIPT_DIR / "data/parameter_descriptions.json", help="RU descriptions cache from dev portal")
     parser.add_argument("--dump-json", type=pathlib.Path, help="also dump the built object as JSON for verification")
+    parser.add_argument("--merge", action="store_true", help="update existing output instead of replacing (tree, bundled, postman-v3)")
+    parser.add_argument("--prune", action="store_true", help="delete requests and folders absent from the new schema (tree, bundled, postman-v3)")
     args = parser.parse_args()
     if args.schema_dir is None:
         args.schema_dir = default_schema_dir()
     if args.out is None:
         args.out = default_out_path(args.format)
+    if (args.merge or args.prune) and args.format not in ("tree", "bundled", "postman-v3"):
+        parser.error("--merge/--prune are only supported for tree, bundled and postman-v3")
 
     env_paths = []
     if args.format == "openapi":
@@ -1059,6 +1063,14 @@ def main():
         )
         return None
     collection, stats = build(args.schema_dir, resolve_api_version(args.api_version), args.name, args.descriptions, args.all)
+    merge_stats = None
+    if args.merge:
+        import merge_collection
+        old = merge_collection.load_existing(args.out, args.format)
+        if old is not None:
+            collection, merge_stats = merge_collection.merge(
+                collection, old, prune=args.prune, keep_old_items=args.format != "postman-v3"
+            )
     if args.format == "bundled":
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(to_yaml({**collection, "bundled": True}), encoding="utf-8")
@@ -1088,12 +1100,22 @@ def main():
     if args.dump_json:
         args.dump_json.parent.mkdir(parents=True, exist_ok=True)
         args.dump_json.write_text(json.dumps(collection, ensure_ascii=False), encoding="utf-8")
+    pruned_files = []
+    if args.prune:
+        import merge_collection
+        pruned_files = merge_collection.prune_orphans(args.out, args.format, collection)
+    extra = ""
+    if merge_stats is not None:
+        extra += " " + " ".join(f"{k}={v}" for k, v in merge_stats.items())
+    if pruned_files:
+        extra += f" pruned_files={len(pruned_files)}"
     print(
         f"format={args.format} folders={stats['folders']} requests={stats['requests']} "
         f"files={file_count} collisions={stats['collisions']} encodings={','.join(stats['encodings'])} "
         f"ru_descriptions={stats['ru_descriptions']} out={args.out}"
         + (f" +{len(env_paths)} environment file(s)" if env_paths else "")
         + f" ({size})"
+        + extra
     )
 
 

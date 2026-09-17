@@ -1,5 +1,7 @@
 import copy
+import json
 import pathlib
+import sys
 import tempfile
 import unittest
 
@@ -466,3 +468,89 @@ class TestPruneOrphans(unittest.TestCase):
 
     def test_bundled_noop(self):
         self.assertEqual(m.prune_orphans(pathlib.Path("/nonexistent/c.yaml"), "bundled", {}), [])
+
+
+MINI_METHODS = {
+    "methods": [
+        {
+            "name": "users.get",
+            "description": "Returns user info",
+            "parameters": [{"name": "user_ids", "description": "IDs", "required": True}],
+        },
+        {
+            "name": "users.old",
+            "description": "Old method",
+            "parameters": [],
+        },
+    ]
+}
+
+
+MINI_METHODS_V2 = {"methods": [MINI_METHODS["methods"][0]]}
+
+
+def write_mini_schema(root, methods=MINI_METHODS):
+    d = root / "users"
+    d.mkdir(parents=True)
+    (d / "methods.json").write_text(json.dumps(methods, ensure_ascii=False), encoding="utf-8")
+    return root
+
+
+def run_main(argv):
+    import generate_collection as g
+    from unittest import mock
+    with mock.patch.object(sys, "argv", argv):
+        g.main()
+
+
+class TestMainFlags(unittest.TestCase):
+    def setUp(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml required")
+
+    def test_unsupported_format_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            schema = write_mini_schema(pathlib.Path(tmp) / "schema")
+            with self.assertRaises(SystemExit):
+                run_main(["generate_collection.py", "--schema-dir", str(schema), "--format", "postman", "--merge"])
+            with self.assertRaises(SystemExit):
+                run_main(["generate_collection.py", "--schema-dir", str(schema), "--format", "openapi", "--prune"])
+
+    def test_merge_preserves_user_edits_in_tree(self):
+        import generate_collection as g
+        import yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            out = root / "out"
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199"])
+            req_file = out / "Users" / "users.get.yml"
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            doc["http"]["body"]["data"][0]["value"] = "1,2"
+            req_file.write_text(g.to_yaml(doc), encoding="utf-8")
+            env_file = out / "environments" / "api.vk.ru.yml"
+            env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
+            [v for v in env["variables"] if v["name"] == "accessToken"][0]["value"] = "tok"
+            env_file.write_text(g.to_yaml(env), encoding="utf-8")
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.200", "--merge"])
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            self.assertEqual(doc["http"]["body"]["data"][0]["value"], "1,2")
+            v_row = [r for r in doc["http"]["body"]["data"] if r["name"] == "v"][0]
+            self.assertEqual(v_row["value"], "{{apiVersion}}")
+            env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
+            self.assertEqual([v for v in env["variables"] if v["name"] == "accessToken"][0]["value"], "tok")
+            self.assertEqual([v for v in env["variables"] if v["name"] == "apiVersion"][0]["value"], "5.200")
+
+    def test_prune_without_merge_removes_stray_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            out = root / "out"
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199"])
+            old_file = out / "Users" / "users.removed.yml"
+            old_file.write_text("info:\n  name: users.removed\n  type: http\n  seq: 99\n", encoding="utf-8")
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199", "--prune"])
+            self.assertFalse(old_file.exists())
+            self.assertTrue((out / "Users" / "users.get.yml").exists())
