@@ -12,10 +12,10 @@ from validate_collection import sniff_spec
 
 
 class TestRegistry(unittest.TestCase):
-    def test_five_formats_registered(self):
+    def test_formats_registered(self):
         self.assertEqual(
             sorted(FORMATS),
-            ["bundled", "openapi", "postman", "postman-v3", "tree"],
+            ["bundled", "hoppscotch", "openapi", "postman", "postman-v3", "tree"],
         )
 
     def test_default_out_paths(self):
@@ -24,6 +24,7 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(FORMATS["postman"].default_out, "dist/postman/vk-api.postman_collection.json")
         self.assertEqual(FORMATS["postman-v3"].default_out, "dist/postman/vk-api-local")
         self.assertEqual(FORMATS["openapi"].default_out, "dist/openapi/vk-api.yaml")
+        self.assertEqual(FORMATS["hoppscotch"].default_out, "dist/hoppscotch")
 
     def test_stats_keys(self):
         self.assertEqual(FORMATS["tree"].stats_keys, ("folders", "requests"))

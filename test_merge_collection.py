@@ -707,3 +707,10 @@ class TestCliPrintGolden(unittest.TestCase):
                 with self.subTest(format=fmt):
                     line = self.run_and_capture(["generate_collection.py", *argv, "--api-version", "5.199"]).strip()
                     self.assertIsNotNone(re.fullmatch(pattern, line), line)
+
+    def test_hoppscotch_print(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            line = self.run_and_capture(["generate_collection.py", "--schema-dir", str(schema), "--out", str(root / "h"), "--format", "hoppscotch", "--api-version", "5.199"]).strip()
+            self.assertTrue(re.fullmatch(r"format=hoppscotch folders=\d+ requests=\d+ files=\d+ collisions=\d+ encodings=[\w,.-]+ ru_descriptions=\d+ out=\S+ \+\d+ environment file\(s\) \(\d+\.\d MB\)", line), line)
