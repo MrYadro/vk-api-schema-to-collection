@@ -554,3 +554,63 @@ class TestMainFlags(unittest.TestCase):
             run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "tree", "--api-version", "5.199", "--prune"])
             self.assertFalse(old_file.exists())
             self.assertTrue((out / "Users" / "users.get.yml").exists())
+
+
+class TestEndToEnd(unittest.TestCase):
+    def setUp(self):
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            self.skipTest("pyyaml required")
+        import generate_collection as g
+        self.g = g
+
+    def test_bundled_merge(self):
+        import yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            out = root / "vk-api.yaml"
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "bundled", "--api-version", "5.199"])
+            doc = yaml.safe_load(out.read_text(encoding="utf-8"))
+            doc["config"]["environments"][0]["variables"][2]["value"] = "tok-b"
+            out.write_text(self.g.to_yaml(doc), encoding="utf-8")
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "bundled", "--api-version", "5.200", "--merge"])
+            doc = yaml.safe_load(out.read_text(encoding="utf-8"))
+            env = doc["config"]["environments"][0]["variables"]
+            self.assertEqual([v for v in env if v["name"] == "accessToken"][0]["value"], "tok-b")
+            self.assertEqual([v for v in env if v["name"] == "apiVersion"][0]["value"], "5.200")
+            self.assertIn("bundled", doc)
+
+    def test_postman_v3_merge_and_prune(self):
+        import validate_collection as v
+        import yaml
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            schema = write_mini_schema(root / "schema")
+            schema_v2 = write_mini_schema(root / "schema2", MINI_METHODS_V2)
+            out = root / "vk-api-local"
+            run_main(["generate_collection.py", "--schema-dir", str(schema), "--out", str(out), "--format", "postman-v3", "--api-version", "5.199"])
+            req_file = out / "postman" / "collections" / "VK API" / "Users" / "users.get.request.yaml"
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            doc["body"]["content"][0]["value"] = "1,2"
+            req_file.write_text(self.g.to_yaml(doc), encoding="utf-8")
+            env_file = out / "postman" / "environments" / "api.vk.ru.environment.yaml"
+            env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
+            [x for x in env["values"] if x["key"] == "accessToken"][0]["value"] = "tok-v3"
+            env_file.write_text(self.g.to_yaml(env), encoding="utf-8")
+            run_main(["generate_collection.py", "--schema-dir", str(schema_v2), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge"])
+            doc = yaml.safe_load(req_file.read_text(encoding="utf-8"))
+            rows = {r["key"]: r for r in doc["body"]["content"] if isinstance(r, dict)}
+            self.assertEqual(rows["user_ids"]["value"], "1,2")
+            env = yaml.safe_load(env_file.read_text(encoding="utf-8"))
+            self.assertEqual([x for x in env["values"] if x["key"] == "accessToken"][0]["value"], "tok-v3")
+            self.assertEqual([x for x in env["values"] if x["key"] == "apiVersion"][0]["value"], "5.200")
+            old_file = out / "postman" / "collections" / "VK API" / "Users" / "users.old.request.yaml"
+            self.assertTrue(old_file.exists())
+            folders, requests = v.validate_postman_v3(out)
+            self.assertEqual((folders, requests), (2, 4))
+            run_main(["generate_collection.py", "--schema-dir", str(schema_v2), "--out", str(out), "--format", "postman-v3", "--api-version", "5.200", "--merge", "--prune"])
+            self.assertFalse(old_file.exists())
+            folders, requests = v.validate_postman_v3(out)
+            self.assertEqual((folders, requests), (2, 3))
