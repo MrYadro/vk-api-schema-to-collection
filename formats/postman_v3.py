@@ -80,7 +80,7 @@ def postman_v3_environment(env):
         values.append(out)
     return {
         "name": env["name"],
-        "color": postman.POSTMAN_ENVIRONMENT_COLOR,
+        "color": postman.postman_hue(env.get("color") or "#0077FF"),
         "values": values,
     }
 

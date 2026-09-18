@@ -66,7 +66,11 @@ class TestMergeContract(unittest.TestCase):
     def test_merge_flag_rejected_for_postman_and_openapi(self):
         for fmt in ("postman", "openapi"):
             with self.subTest(fmt=fmt):
-                with mock.patch.object(sys, "argv", ["generate_collection.py", "--format", fmt, "--merge"]):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    ["generate_collection.py", "--format", fmt, "--schema-dir", "schema", "--merge"],
+                ):
                     with self.assertRaises(SystemExit) as cm:
                         g.main()
                     self.assertEqual(cm.exception.code, 2)

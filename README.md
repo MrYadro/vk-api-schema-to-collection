@@ -45,8 +45,9 @@ dist/
 ```
 
 В Bruno: File → Open Collection → выбрать папку `dist/opencollection/vk-api`.
-В Postman: Import → File → `dist/postman/vk-api.postman_collection.json`, затем импортировать окружение
-`dist/postman/vk-api.postman_environment.json` и вписать токен в `accessToken`.
+В Postman: Import → File → `dist/postman/vk-api.postman_collection.json`, затем импортировать окружения
+`dist/postman/vk-api.postman_environment.json` и `dist/postman/api.vkvideo.ru.postman_environment.json`,
+вписать токен в `accessToken`.
 В Postman Local View: Files → Open folder → `dist/postman/vk-api-local` (манифест `.postman/` Postman создаст сам).
 В Yaak: Open Workspace → `dist/yaak/vk-api`.
 В Insomnia: Import → `dist/insomnia/vk-api.insomnia.json` (v4) или Git Sync-папка `dist/insomnia/vk-api-local` (v5).
@@ -136,9 +137,11 @@ insomnia-v5); импорт-только форматы (postman/hoppscotch/insom
   afterResponse наследуется от всех предков). Исключение — Hoppscotch: в формате
   нет папочного наследования, скрипт у каждого запроса. Yaak и OpenAPI
   scripting не поддерживают.
-- **Цвет**: окружения несут VK-blue `#0077FF` из модели везде, где формат
-  позволяет (OpenCollection/insomnia v4+v5/yaak — hex; Postman v2.1/v3 — hue 212,
-  цветовое колесо Postman); hoppscotch и openapi цветов окружений не поддерживают.
+- **Цвет**: два окружения из модели — `api.vk.ru` (VK-blue `#0077FF`) и
+  `api.vkvideo.ru` для VK Видео (`#FF2B42`, hue 7) — везде, где формат позволяет
+  (OpenCollection/insomnia v4+v5/yaak — hex; Postman v2.1/v3 — hue-колесо Postman);
+  hoppscotch цветов окружений не поддерживает. OpenAPI несёт оба домена в `servers`.
+  Переключение домена = выбор окружения в клиенте; запросы остаются на `{{baseUrl}}`.
 - **Описания**: markdown-документация запроса и папки (`docs` модели) попадает
   в поле description формата, если оно есть.
 

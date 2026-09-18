@@ -336,7 +336,7 @@ DOCS_MD = """# VK API
 
 ## Быстрый старт
 
-1. Выберите окружение **api.vk.ru** (по умолчанию уже выбрано).
+1. Выберите окружение **api.vk.ru** (по умолчанию уже выбрано); для методов VK Видео переключитесь на окружение **api.vkvideo.ru** (красное).
 2. Вставьте ключ доступа в секретную переменную `accessToken` (окружения → api.vk.ru).
 3. Откройте `_Meta → Проверка токена (users.get)` и выполните — вернётся профиль владельца токена.
 
@@ -453,6 +453,28 @@ def build(schema_dir, api_version, collection_name="VK API", descriptions_path=N
         )
     items.insert(0, meta_folder(1))
     today = datetime.date.today().isoformat()
+    env_domains = (
+        ("api.vk.ru", "https://api.vk.ru", "#0077FF", "Базовый URL API ВКонтакте (допустим также https://api.vk.com)."),
+        ("api.vkvideo.ru", "https://api.vkvideo.ru", "#FF2B42", "Базовый URL VK Видео — переключите окружение для методов видеоплатформы."),
+    )
+    env_secrets = [
+        {"secret": True, "name": "accessToken", "type": "string", "description": "Токен пользователя (access_token_type: user). Используется коллекционным Bearer-заголовком."},
+        {"secret": True, "name": "groupToken", "type": "string", "description": "Токен сообщества (access_token_type: group)."},
+        {"secret": True, "name": "serviceToken", "type": "string", "description": "Сервисный токен приложения (access_token_type: service)."},
+        {"secret": True, "name": "anonymousToken", "type": "string", "description": "Анонимный токен (access_token_type: anonymous)."},
+    ] + ([{"secret": True, "name": "clientSecretToken", "type": "string", "description": "client_secret приложения (access_token_type: client_secret, только внутренние методы)."}] if include_all else [])
+    environments = [
+        {
+            "name": name,
+            "color": color,
+            "variables": [
+                {"name": "baseUrl", "value": url, "description": url_description},
+                {"name": "apiVersion", "value": api_version, "description": "Версия API — подставляется в параметр v каждого запроса."},
+            ]
+            + [dict(secret) for secret in env_secrets],
+        }
+        for name, url, color, url_description in env_domains
+    ]
     collection = {
         "opencollection": "1.0.0",
         "info": {
@@ -477,20 +499,7 @@ def build(schema_dir, api_version, collection_name="VK API", descriptions_path=N
             }
         },
         "config": {
-            "environments": [
-                {
-                    "name": "api.vk.ru",
-                    "color": "#0077FF",
-                    "variables": [
-                        {"name": "baseUrl", "value": "https://api.vk.ru", "description": "Базовый URL API ВКонтакте (допустим также https://api.vk.com)."},
-                        {"name": "apiVersion", "value": api_version, "description": "Версия API — подставляется в параметр v каждого запроса."},
-                        {"secret": True, "name": "accessToken", "type": "string", "description": "Токен пользователя (access_token_type: user). Используется коллекционным Bearer-заголовком."},
-                        {"secret": True, "name": "groupToken", "type": "string", "description": "Токен сообщества (access_token_type: group)."},
-                        {"secret": True, "name": "serviceToken", "type": "string", "description": "Сервисный токен приложения (access_token_type: service)."},
-                        {"secret": True, "name": "anonymousToken", "type": "string", "description": "Анонимный токен (access_token_type: anonymous)."},
-                    ] + ([{"secret": True, "name": "clientSecretToken", "type": "string", "description": "client_secret приложения (access_token_type: client_secret, только внутренние методы)."}] if include_all else []),
-                }
-            ]
+            "environments": environments
         },
         "items": items,
         "docs": DOCS_MD.replace("__API_VERSION__", api_version),

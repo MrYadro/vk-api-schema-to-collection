@@ -276,12 +276,21 @@ class TestBuildOpenapi(unittest.TestCase):
         self.assertEqual(self.doc["info"]["title"], "VK API")
         self.assertEqual(self.doc["info"]["version"], "5.199")
         self.assertEqual(self.doc["servers"][0]["url"], "https://api.vk.ru")
-        self.assertEqual(self.doc["security"], [{"bearerAuth": []}])
+        self.assertEqual(
+            self.doc["security"],
+            [{"bearerAuth": []}],
+        )
         self.assertEqual(
             self.doc["components"]["securitySchemes"]["bearerAuth"],
             {"type": "http", "scheme": "bearer", "bearerFormat": "access_token"},
         )
         self.assertIn("VK API", self.doc["info"]["description"])
+
+    def test_servers_include_vkvideo(self):
+        self.assertEqual(
+            [s["url"] for s in self.doc["servers"]],
+            ["https://api.vk.ru", "https://api.vkvideo.ru"],
+        )
 
     def test_tags_are_sorted_categories(self):
         self.assertEqual([t["name"] for t in self.doc["tags"]], ["Users", "Wall"])
@@ -536,6 +545,78 @@ class TestMainBackup(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         self.assertEqual(backups[0].read_text(encoding="utf-8"), first)
         self.assertIn("backup=", stdout)
+
+
+class TestVkVideoEnvironment(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.root = pathlib.Path(cls.tmp.name)
+        for rel, doc in MINI_SCHEMA.items():
+            path = cls.root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(doc), encoding="utf-8")
+        cls.collection, cls.stats = core.build(cls.root, "5.199", "VK API", cls.root / "descriptions.json", False)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def env(self, name):
+        return next(e for e in self.collection["config"]["environments"] if e["name"] == name)
+
+    def test_two_environments(self):
+        self.assertEqual([e["name"] for e in self.collection["config"]["environments"]], ["api.vk.ru", "api.vkvideo.ru"])
+
+    def test_vkvideo_environment(self):
+        env = self.env("api.vkvideo.ru")
+        self.assertEqual(env["color"], "#FF2B42")
+        variables = {v["name"]: v for v in env["variables"]}
+        self.assertEqual(variables["baseUrl"]["value"], "https://api.vkvideo.ru")
+        self.assertIn("VK Видео", variables["baseUrl"]["description"])
+        for secret in ("accessToken", "groupToken", "serviceToken", "anonymousToken"):
+            self.assertTrue(variables[secret].get("secret"))
+
+    def test_main_environment_unchanged(self):
+        env = self.env("api.vk.ru")
+        self.assertEqual(env["color"], "#0077FF")
+        variables = {v["name"]: v for v in env["variables"]}
+        self.assertEqual(variables["baseUrl"]["value"], "https://api.vk.ru")
+        self.assertEqual(self.collection["request"]["variables"][0]["value"], "https://api.vk.ru")
+
+
+class TestPostmanHue(unittest.TestCase):
+    def test_vk_blue(self):
+        self.assertEqual(postman.postman_hue("#0077FF"), postman.POSTMAN_ENVIRONMENT_COLOR)
+
+    def test_vkvideo_red(self):
+        self.assertEqual(postman.postman_hue("#FF2B42"), 7)
+
+
+class TestWritePostmanEnvironments(unittest.TestCase):
+    def test_writes_both_environment_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            collection = json.loads(json.dumps(COLLECTION))
+            collection["config"]["environments"].append(
+                {
+                    "name": "api.vkvideo.ru",
+                    "color": "#FF2B42",
+                    "variables": [{"name": "baseUrl", "value": "https://api.vkvideo.ru"}],
+                }
+            )
+            out = pathlib.Path(tmp) / "vk-api.postman_collection.json"
+            files, note = postman.write_postman(collection, out)
+            self.assertEqual(files, 3)
+            self.assertIn("environment file(s)", note)
+            first = json.loads(postman.postman_environment_path(out).read_text(encoding="utf-8"))
+            self.assertEqual(first["name"], "api.vk.ru")
+            second = json.loads(
+                (out.parent / "api.vkvideo.ru.postman_environment.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(second["name"], "api.vkvideo.ru")
+            self.assertEqual(second["color"], 7)
+            values = {v["key"]: v for v in second["values"]}
+            self.assertEqual(values["baseUrl"]["value"], "https://api.vkvideo.ru")
 
 
 if __name__ == "__main__":

@@ -192,7 +192,7 @@ def build_openapi(schema_dir, api_version, collection_name="VK API", description
             "version": api_version,
             "description": OPENAPI_DESCRIPTION.replace("__API_VERSION__", api_version),
         },
-        "servers": [{"url": "https://api.vk.ru"}],
+        "servers": [{"url": "https://api.vk.ru"}, {"url": "https://api.vkvideo.ru"}],
         "tags": tags,
         "security": [{"bearerAuth": []}],
         "paths": paths,

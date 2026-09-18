@@ -98,6 +98,22 @@ def to_postman(collection):
 POSTMAN_ENVIRONMENT_COLOR = 212  # hue-колесо Postman 0-360; 212 = #0077FF (VK blue)
 
 
+def postman_hue(color):
+    h = color.lstrip("#")
+    r, g, b = (int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    mx, mn = max(r, g, b), min(r, g, b)
+    d = mx - mn
+    if d == 0:
+        return 0
+    if mx == r:
+        hue = ((b - g) / d) % 6
+    elif mx == g:
+        hue = (b - r) / d + 2
+    else:
+        hue = (r - g) / d + 4
+    return round(hue * 60) % 360
+
+
 def to_postman_environment(env):
     return {
         "name": env["name"],
@@ -105,7 +121,7 @@ def to_postman_environment(env):
             {"key": var["name"], "value": var.get("value", ""), "enabled": True, **({"type": "secret"} if var.get("secret") else {})}
             for var in env.get("variables", [])
         ],
-        "color": POSTMAN_ENVIRONMENT_COLOR,
+        "color": postman_hue(env.get("color") or "#0077FF"),
         "_postman_variable_scope": "environment",
     }
 
