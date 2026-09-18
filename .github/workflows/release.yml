@@ -143,7 +143,8 @@ jobs:
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.opencollection.yaml"
           python3 validate_collection.py vk-api
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.postman_collection.json"
-          python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.postman_environment.json"
+          python3 validate_collection.py api.vk.ru.postman_environment.json
+          python3 validate_collection.py api.vkvideo.ru.postman_environment.json
           python3 validate_collection.py "vk-api-${{ steps.version.outputs.version }}.openapi.yaml"
           python3 validate_collection.py vk-api-local
           python3 validate_collection.py vk-api-yaak
@@ -158,7 +159,7 @@ jobs:
           V="${{ steps.version.outputs.version }}"
           (cd vk-api && zip -qr "../vk-api-${V}.opencollection.zip" .)
           zip -q "vk-api-${V}.opencollection.zip" "vk-api-${V}.opencollection.yaml"
-          zip -q "vk-api-${V}.postman.zip" "vk-api-${V}.postman_collection.json" "vk-api-${V}.postman_environment.json"
+          zip -q "vk-api-${V}.postman.zip" "vk-api-${V}.postman_collection.json" api.vk.ru.postman_environment.json api.vkvideo.ru.postman_environment.json
           zip -qr "vk-api-${V}.postman.zip" vk-api-local
           zip -q "vk-api-${V}.openapi.zip" "vk-api-${V}.openapi.yaml"
           zip -qr "vk-api-${V}.yaak.zip" vk-api-yaak
@@ -177,7 +178,7 @@ jobs:
             API collections for VK API, generated from [VKCOM/vk-api-schema](https://github.com/VKCOM/vk-api-schema) for API version **${{ steps.version.outputs.version }}**.
 
             - `vk-api-${{ steps.version.outputs.version }}.opencollection.zip` — OpenCollection: tree (Bruno: *File → Open Collection*) + bundled YAML
-            - `vk-api-${{ steps.version.outputs.version }}.postman.zip` — Postman: коллекция v2.1 + окружение `api.vk.ru` + `vk-api-local/` (Native Git дерево V3: Files → Open folder)
+            - `vk-api-${{ steps.version.outputs.version }}.postman.zip` — Postman: коллекция v2.1 + окружения `api.vk.ru` и `api.vkvideo.ru` + `vk-api-local/` (Native Git дерево V3: Files → Open folder)
             - `vk-api-${{ steps.version.outputs.version }}.openapi.zip` — OpenAPI 3.1 (Swagger UI / codegen / Postman import)
             - `vk-api-${{ steps.version.outputs.version }}.yaak.zip` — Yaak: sync-папка (`vk-api-yaak/`, Open Workspace или `yaak import`)
             - `vk-api-${{ steps.version.outputs.version }}.insomnia.zip` — Insomnia: v4 JSON (GUI-импорт) + v5 Git Sync папка (`vk-api-insomnia-local/`)

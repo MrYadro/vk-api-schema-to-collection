@@ -134,22 +134,12 @@ def dump_postman_environment(env):
     return json.dumps(to_postman_environment(env), ensure_ascii=False, indent=2) + "\n"
 
 
-def postman_environment_path(out_path):
-    name = out_path.name.replace("postman_collection", "postman_environment")
-    if name == out_path.name:
-        name = f"{out_path.stem}.postman_environment{out_path.suffix}"
-    return out_path.parent / name
-
-
 def write_postman(collection, out):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(dump_postman(collection), encoding="utf-8")
     env_paths = []
-    for i, env in enumerate(collection.get("config", {}).get("environments", [])):
-        if i == 0:
-            env_path = postman_environment_path(out)
-        else:
-            env_path = out.parent / f"{SAFE_FILENAME.sub('_', env['name'])}.postman_environment.json"
+    for env in collection.get("config", {}).get("environments", []):
+        env_path = out.parent / f"{SAFE_FILENAME.sub('_', env['name'])}.postman_environment.json"
         env_path.write_text(dump_postman_environment(env), encoding="utf-8")
         env_paths.append(env_path)
     note = f" +{len(env_paths)} environment file(s)" if env_paths else ""

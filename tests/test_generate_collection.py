@@ -194,10 +194,6 @@ class TestDefaultOutPath(unittest.TestCase):
     def test_postman(self):
         out = g.default_out_path("postman")
         self.assertEqual(out, pathlib.Path("dist/postman/vk-api.postman_collection.json"))
-        self.assertEqual(
-            postman.postman_environment_path(out),
-            pathlib.Path("dist/postman/vk-api.postman_environment.json"),
-        )
 
 
 MINI_SCHEMA = {
@@ -608,7 +604,7 @@ class TestWritePostmanEnvironments(unittest.TestCase):
             files, note = postman.write_postman(collection, out)
             self.assertEqual(files, 3)
             self.assertIn("environment file(s)", note)
-            first = json.loads(postman.postman_environment_path(out).read_text(encoding="utf-8"))
+            first = json.loads((out.parent / "api.vk.ru.postman_environment.json").read_text(encoding="utf-8"))
             self.assertEqual(first["name"], "api.vk.ru")
             second = json.loads(
                 (out.parent / "api.vkvideo.ru.postman_environment.json").read_text(encoding="utf-8")

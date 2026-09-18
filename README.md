@@ -7,7 +7,7 @@
 - Параметры — form-urlencoded body; обязательные включены, опциональные выключены
 - Enum-параметры — по одной выключенной строке на каждое значение, значения резолвятся через `$ref` в objects.json
 - Русские описания методов и параметров с dev.vk.ru (фолбэк — английские из схемы)
-- Postman: коллекция v2.1 (JSON) + файл окружения `api.vk.ru`, автотест на коды ошибок VK через `pm.test`
+- Postman: коллекция v2.1 (JSON) + файлы окружений `api.vk.ru`/`api.vkvideo.ru`, автотест на коды ошибок VK через `pm.test`
 - Postman Native Git (Local View): дерево Collection V3 YAML (`postman/collections/…`) — открывается в Postman через Files → Open folder, Git-native
 - Yaak: sync-папка YAML (`yaak.<id>.yaml`) — Open Workspace или `yaak import`, git-native, с `--merge`
 - Insomnia: v4 JSON для GUI-импорта + v5 YAML Git Sync папка (headless `inso` CLI), v5 — с `--merge`
@@ -46,7 +46,7 @@ dist/
 
 В Bruno: File → Open Collection → выбрать папку `dist/opencollection/vk-api`.
 В Postman: Import → File → `dist/postman/vk-api.postman_collection.json`, затем импортировать окружения
-`dist/postman/vk-api.postman_environment.json` и `dist/postman/api.vkvideo.ru.postman_environment.json`,
+`dist/postman/api.vk.ru.postman_environment.json` и `dist/postman/api.vkvideo.ru.postman_environment.json`,
 вписать токен в `accessToken`.
 В Postman Local View: Files → Open folder → `dist/postman/vk-api-local` (манифест `.postman/` Postman создаст сам).
 В Yaak: Open Workspace → `dist/yaak/vk-api`.
