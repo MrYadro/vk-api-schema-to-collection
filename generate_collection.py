@@ -4,7 +4,7 @@ import json
 import pathlib
 import sys
 
-from core import SCRIPT_DIR, default_schema_dir, resolve_api_version
+from core import SCRIPT_DIR, backup_existing, default_schema_dir, resolve_api_version
 from formats import FORMATS, BuildContext
 
 
@@ -52,6 +52,9 @@ def main():
     if args.dump_json and spec.model_based:
         args.dump_json.parent.mkdir(parents=True, exist_ok=True)
         args.dump_json.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    backup = None
+    if (args.merge or args.prune) and spec.supports_merge:
+        backup = backup_existing(args.out)
     file_count, note = spec.write(payload, args.out)
     if args.out.is_dir():
         total = sum(f.stat().st_size for f in args.out.rglob("*") if f.is_file())
@@ -62,6 +65,8 @@ def main():
     if args.prune and spec.prune_orphans is not None:
         pruned_files = spec.prune_orphans(args.out, payload)
     extra = ""
+    if backup is not None:
+        extra += f" backup={backup.name}"
     if merge_stats is not None:
         extra += " " + " ".join(f"{k}={v}" for k, v in merge_stats.items())
     if pruned_files:

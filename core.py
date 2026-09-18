@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import sys
 import urllib.parse
 import urllib.request
@@ -577,3 +578,26 @@ def require_yaml():
     except ImportError:
         raise SystemExit("--merge/--prune need PyYAML: pip install pyyaml")
     return yaml
+
+
+BACKUP_LIMIT = 10
+
+
+def backup_existing(out, limit=BACKUP_LIMIT):
+    out = pathlib.Path(out)
+    if not out.exists():
+        return None
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    target = out.parent / f"{out.name}.bak-{stamp}"
+    if out.is_dir():
+        shutil.copytree(out, target)
+    else:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(out, target)
+    backups = sorted(out.parent.glob(f"{out.name}.bak-*"))
+    for stale in backups[: -limit] if limit else backups:
+        if stale.is_dir():
+            shutil.rmtree(stale)
+        else:
+            stale.unlink()
+    return target

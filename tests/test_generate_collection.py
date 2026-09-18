@@ -1,12 +1,21 @@
+import contextlib
+import io
 import json
 import pathlib
+import sys
 import tempfile
 import unittest
+import unittest.mock
 import uuid
 
 import core
 import generate_collection as g
 from formats import openapi, postman, postman_v3
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 POSTMAN_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 
@@ -441,6 +450,92 @@ class TestWritePostmanV3(unittest.TestCase):
 
     def test_default_out(self):
         self.assertEqual(g.default_out_path("postman-v3"), pathlib.Path("dist/postman/vk-api-local"))
+
+
+class TestBackupExisting(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_missing_out_returns_none(self):
+        self.assertIsNone(core.backup_existing(self.root / "absent"))
+
+    def test_backs_up_directory(self):
+        out = self.root / "vk-api"
+        out.mkdir()
+        (out / "opencollection.yml").write_text("x: 1\n", encoding="utf-8")
+        backup = core.backup_existing(out)
+        self.assertIsNotNone(backup)
+        self.assertEqual(backup.parent, self.root)
+        self.assertTrue(backup.name.startswith("vk-api.bak-"))
+        self.assertTrue(backup.is_dir())
+        self.assertEqual((backup / "opencollection.yml").read_text(encoding="utf-8"), "x: 1\n")
+
+    def test_backs_up_file(self):
+        out = self.root / "vk-api.yaml"
+        out.write_text("info: {}\n", encoding="utf-8")
+        backup = core.backup_existing(out)
+        self.assertTrue(backup.is_file())
+        self.assertTrue(backup.name.startswith("vk-api.yaml.bak-"))
+        self.assertEqual(backup.read_text(encoding="utf-8"), "info: {}\n")
+
+    def test_rotation_keeps_last_ten(self):
+        out = self.root / "vk-api"
+        out.mkdir()
+        (out / "f.yml").write_text("a: 1\n", encoding="utf-8")
+        stamps = [core.backup_existing(out).name for _ in range(12)]
+        backups = sorted(p.name for p in self.root.glob("vk-api.bak-*"))
+        self.assertEqual(len(backups), 10)
+        self.assertNotIn(stamps[0], backups)
+        self.assertNotIn(stamps[1], backups)
+        self.assertIn(stamps[-1], backups)
+        self.assertTrue(all(p.is_dir() for p in self.root.glob("vk-api.bak-*")))
+
+
+@unittest.skipIf(yaml is None, "PyYAML required")
+class TestMainBackup(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+        for rel, doc in MINI_SCHEMA.items():
+            path = self.root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(doc), encoding="utf-8")
+        self.out = self.root / "dist/vk-api.yaml"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_main(self, *extra):
+        argv = [
+            "generate_collection.py",
+            "--schema-dir", str(self.root),
+            "--api-version", "5.199",
+            "--format", "bundled",
+            "--descriptions", str(self.root / "descriptions.json"),
+            "--out", str(self.out),
+            *extra,
+        ]
+        with unittest.mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()) as buf:
+            g.main()
+        return buf.getvalue()
+
+    def test_plain_generation_makes_no_backup(self):
+        self.run_main()
+        self.assertTrue(self.out.is_file())
+        self.assertEqual(list(self.out.parent.glob("vk-api.yaml.bak-*")), [])
+
+    def test_merge_makes_backup_of_previous_output(self):
+        self.run_main()
+        first = self.out.read_text(encoding="utf-8")
+        stdout = self.run_main("--merge")
+        backups = list(self.out.parent.glob("vk-api.yaml.bak-*"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(encoding="utf-8"), first)
+        self.assertIn("backup=", stdout)
 
 
 if __name__ == "__main__":
