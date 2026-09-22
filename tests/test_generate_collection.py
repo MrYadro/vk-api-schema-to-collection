@@ -615,5 +615,34 @@ class TestWritePostmanEnvironments(unittest.TestCase):
             self.assertEqual(values["baseUrl"]["value"], "https://api.vkvideo.ru")
 
 
+class TestFormRows(unittest.TestCase):
+    def test_required_enum_first_value_enabled(self):
+        rows = core.form_rows({"name": "sort", "required": True, "enum": ["name", "date", "id"]}, None, None)
+        self.assertEqual(
+            rows,
+            [
+                {"name": "sort", "value": "name"},
+                {"name": "sort", "value": "date", "disabled": True},
+                {"name": "sort", "value": "id", "disabled": True},
+            ],
+        )
+
+    def test_optional_enum_all_disabled(self):
+        rows = core.form_rows({"name": "sort", "enum": ["name", "date"]}, None, None)
+        self.assertEqual(
+            rows,
+            [
+                {"name": "sort", "value": "name", "disabled": True},
+                {"name": "sort", "value": "date", "disabled": True},
+            ],
+        )
+
+    def test_required_enum_uses_first_visible_value(self):
+        param = {"name": "sort", "required": True, "enum": ["hidden", "name", "date"], "nodocEnum": ["hidden"]}
+        rows = core.form_rows(param, None, None)
+        self.assertEqual(rows[0], {"name": "sort", "value": "name"})
+        self.assertEqual(rows[1], {"name": "sort", "value": "date", "disabled": True})
+
+
 if __name__ == "__main__":
     unittest.main()

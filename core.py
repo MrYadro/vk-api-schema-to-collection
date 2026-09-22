@@ -240,7 +240,9 @@ def form_rows(param, cur_file, resolver, ru=None):
     rows = []
     if enums:
         for v in enums:
-            row = {"name": name, "value": v, "disabled": True}
+            row = {"name": name, "value": v}
+            if param.get("required") is not True or v != enums[0]:
+                row["disabled"] = True
             if desc and v == enums[0]:
                 row["description"] = desc
             rows.append(row)
@@ -366,7 +368,7 @@ DOCS_MD = """# VK API
 
 ## Параметры в запросах
 
-Обязательные параметры включены, опциональные отключены (`disabled`) — включите нужные перед отправкой. Возможные значения enum идут отдельными выключенными строками.
+Обязательные параметры включены, опциональные отключены (`disabled`) — включите нужные перед отправкой. Возможные значения enum идут отдельными строками: для обязательных параметров включено первое значение, остальные отключены.
 
 ## Полезное
 
