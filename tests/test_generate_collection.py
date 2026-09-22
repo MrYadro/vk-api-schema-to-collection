@@ -580,6 +580,10 @@ class TestVkVideoEnvironment(unittest.TestCase):
         self.assertEqual(variables["baseUrl"]["value"], "https://api.vk.ru")
         self.assertEqual(self.collection["request"]["variables"][0]["value"], "https://api.vk.ru")
 
+    def test_bruno_new_request_preset_url_ends_with_slash(self):
+        preset = self.collection["extensions"]["bruno"]["presets"]["request"]
+        self.assertEqual(preset["url"], "{{baseUrl}}/method/")
+
 
 class TestPostmanHue(unittest.TestCase):
     def test_vk_blue(self):

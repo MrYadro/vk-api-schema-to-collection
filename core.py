@@ -495,7 +495,7 @@ def build(schema_dir, api_version, collection_name="VK API", descriptions_path=N
         "extensions": {
             "bruno": {
                 "presets": {
-                    "request": {"type": "http", "url": "{{baseUrl}}/method"},
+                    "request": {"type": "http", "url": "{{baseUrl}}/method/"},
                     "defaultEnvironment": "api.vk.ru",
                 }
             }
