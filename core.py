@@ -77,6 +77,8 @@ def fmt(v):
         return "null"
     if isinstance(v, (int, float)):
         return str(v)
+    if not isinstance(v, str):
+        v = str(v)
     return scalar(v)
 
 

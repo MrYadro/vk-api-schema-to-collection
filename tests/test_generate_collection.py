@@ -1,4 +1,5 @@
 import contextlib
+import datetime
 import io
 import json
 import pathlib
@@ -385,6 +386,16 @@ class TestYamlEmit(unittest.TestCase):
     def test_singleline_string_stays_quoted(self):
         out = core.to_yaml({"a": "simple"})
         self.assertIn("a: simple", out)
+
+    def test_date_value_stringified_and_quoted(self):
+        row = {"name": "from_date", "value": datetime.date(2026, 4, 27)}
+        out = core.to_yaml({"data": [row]})
+        self.assertIn('value: "2026-04-27"', out)
+
+    def test_datetime_value_stringified_and_quoted(self):
+        row = {"name": "ts", "value": datetime.datetime(2026, 4, 27, 10, 30, 0)}
+        out = core.to_yaml({"data": [row]})
+        self.assertIn('value: "2026-04-27 10:30:00"', out)
 
 
 class TestToPostmanV3(unittest.TestCase):
