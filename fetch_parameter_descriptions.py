@@ -103,7 +103,7 @@ def main():
     print(f"total={len(methods)} cached={len(cache)} todo={len(todo)}", flush=True)
 
     delay = 1.0 / args.rps
-    fetched = errors = 0
+    fetched = errors = skipped = 0
     started = time.monotonic()
     for i, name in enumerate(todo):
         for attempt in range(5):
@@ -134,6 +134,7 @@ def main():
                     time.sleep(delay)
                     continue
             if code in (5, 6, 9, 10):
+                skipped += 1
                 time.sleep(1.0)
                 continue
             cache[name] = {"missing": True, "error_code": code}
@@ -152,7 +153,7 @@ def main():
             done = i + 1
             rate = done / max(time.monotonic() - started, 0.001)
             print(
-                f"{done}/{len(todo)} fetched={fetched} errors={errors} rate={rate:.1f}/s eta={(len(todo)-done)/max(rate,0.01)/60:.0f}m",
+                f"{done}/{len(todo)} fetched={fetched} errors={errors} skipped={skipped} rate={rate:.1f}/s eta={(len(todo)-done)/max(rate,0.01)/60:.0f}m",
                 flush=True,
             )
         time.sleep(delay)

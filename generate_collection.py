@@ -49,7 +49,7 @@ def main():
             payload, merge_stats = merge_collection.merge(
                 payload, old, prune=args.prune, keep_old_items=spec.keep_old_items
             )
-    if args.dump_json and spec.model_based:
+    if args.dump_json:
         args.dump_json.parent.mkdir(parents=True, exist_ok=True)
         args.dump_json.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     backup = None

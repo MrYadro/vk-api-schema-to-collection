@@ -47,6 +47,14 @@ class TestInsomnia(unittest.TestCase):
         self.assertEqual(env["name"], "api.vk.ru")
         self.assertEqual(env["color"], "#0077FF")
 
+    def test_environment_ids_unique(self):
+        collection = json.loads(json.dumps(COLLECTION))
+        collection["config"]["environments"].append(
+            {"name": "api.vkvideo.ru", "color": "#FF2B42", "variables": [{"name": "baseUrl", "value": "https://api.vkvideo.ru"}]}
+        )
+        envs = [r for r in ins.to_insomnia(collection)["resources"] if r["_type"] == "environment"]
+        self.assertEqual([e["_id"] for e in envs], ["__ENV_1__", "__ENV_2__"])
+
     def test_write_matches_validate(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = pathlib.Path(tmp) / "vk-api.insomnia.json"

@@ -1,37 +1,18 @@
 import pathlib
-import re
 
-from core import require_yaml, to_yaml
+from core import as_text, compact_var, require_yaml, space_var, to_yaml
 from formats import FormatSpec, build_collection
 from formats import insomnia
-
-VAR_PATTERN = re.compile(r"\{\{\s*([^{}\s][^{}]*?)\s*\}\}")
 
 TYPE = "collection.insomnia.rest/5.0"
 SCHEMA_VERSION = "5.1"
 FILE_NAME = "insomnia.wrk_1.yaml"
 
 
-def _var(value):
-    return VAR_PATTERN.sub(r"{{ \1 }}", value)
-
-
-def _unvar(value):
-    return VAR_PATTERN.sub(r"{{\1}}", value)
-
-
-def _text(value):
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    return str(value)
-
-
 def _params(rows):
     out = []
     for r in rows:
-        param = {"name": r["name"], "value": _var(r.get("value", ""))}
+        param = {"name": r["name"], "value": space_var(r.get("value", ""))}
         if r.get("description"):
             param["description"] = r["description"]
         if r.get("disabled"):
@@ -50,7 +31,7 @@ def _v5_request(req, folder_idx, idx):
             "sortKey": idx * 1000,
         },
         "method": http["method"],
-        "url": _var(http["url"]),
+        "url": space_var(http["url"]),
         "body": {
             "mimeType": "application/x-www-form-urlencoded",
             "params": _params(http.get("body", {}).get("data", [])),
@@ -98,7 +79,7 @@ def to_insomnia_v5(collection):
         "scripts": {"afterResponse": insomnia.INSOMNIA_TEST_SCRIPT},
         "authentication": {
             "type": "bearer",
-            "token": _var(collection["request"]["auth"]["token"]),
+            "token": space_var(collection["request"]["auth"]["token"]),
             "prefix": "",
         },
         "children": [
@@ -129,7 +110,7 @@ def _load_rows(params):
     for p in params or []:
         if not isinstance(p, dict):
             continue
-        row = {"name": _text(p.get("name")), "value": _unvar(_text(p.get("value")))}
+        row = {"name": as_text(p.get("name")), "value": compact_var(as_text(p.get("value")))}
         if p.get("description"):
             row["description"] = p["description"]
         if p.get("disabled"):
@@ -140,7 +121,7 @@ def _load_rows(params):
 
 def _load_request(req):
     meta = req.get("meta") or {}
-    info = {"name": _text(req.get("name")), "type": "http"}
+    info = {"name": as_text(req.get("name")), "type": "http"}
     if meta.get("description"):
         info["description"] = meta["description"]
     body = req.get("body") or {}
@@ -148,7 +129,7 @@ def _load_request(req):
         "info": info,
         "http": {
             "method": req.get("method") or "POST",
-            "url": _unvar(_text(req.get("url"))),
+            "url": compact_var(as_text(req.get("url"))),
             "auth": "inherit",
             "body": {"type": "form-urlencoded", "data": _load_rows(body.get("params"))},
         },
@@ -158,7 +139,7 @@ def _load_request(req):
 
 def _load_folder(folder):
     meta = folder.get("meta") or {}
-    info = {"name": _text(folder.get("name")), "type": "folder"}
+    info = {"name": as_text(folder.get("name")), "type": "folder"}
     if meta.get("description"):
         info["description"] = meta["description"]
     return {
@@ -178,7 +159,7 @@ def _load_env_variables(node):
     order = (node.get("dataPropertyOrder") or {}).get("&") or []
     ordered = [k for k in order if isinstance(k, str) and k in data]
     ordered += [k for k in data if k not in set(ordered)]
-    return [{"name": k, "value": _text(data.get(k))} for k in ordered]
+    return [{"name": k, "value": as_text(data.get(k))} for k in ordered]
 
 
 def _load_environments(envs):
@@ -186,7 +167,7 @@ def _load_environments(envs):
     for sub in envs.get("subEnvironments") or []:
         if not isinstance(sub, dict):
             continue
-        env = {"name": _text(sub.get("name")), "variables": _load_env_variables(sub)}
+        env = {"name": as_text(sub.get("name")), "variables": _load_env_variables(sub)}
         if sub.get("color"):
             env["color"] = sub["color"]
         environments.append(env)
@@ -222,8 +203,8 @@ def load_insomnia_v5(out):
     envs_doc = next((d.get("environments") for d in docs if isinstance(d.get("environments"), dict)), {})
     return {
         "opencollection": "1.0.0",
-        "info": {"name": _text(root.get("name"))},
-        "request": {"auth": {"type": auth.get("type") or "bearer", "token": _unvar(_text(auth.get("token")))}},
+        "info": {"name": as_text(root.get("name"))},
+        "request": {"auth": {"type": auth.get("type") or "bearer", "token": compact_var(as_text(auth.get("token")))}},
         "config": {"environments": _load_environments(envs_doc)},
         "items": items,
         "docs": meta.get("description") or "",
@@ -291,7 +272,6 @@ INSOMNIA_V5_SPEC = FormatSpec(
     name="insomnia-v5",
     default_out="dist/insomnia/vk-api-local",
     stats_keys=("folders", "requests"),
-    model_based=True,
     build=build_collection,
     write=write_insomnia_v5,
     supports_merge=True,

@@ -192,7 +192,10 @@ def get_latest_api_version(timeout=30):
 
 def resolve_api_version(value):
     if value == "latest":
-        return get_latest_api_version()
+        try:
+            return get_latest_api_version()
+        except OSError as e:
+            sys.exit(f"cannot fetch latest API version ({e}); pass --api-version explicitly")
     return value
 
 
@@ -316,9 +319,11 @@ def build_request(method, cur_file, resolver, ru=None):
     }
 
 
+VK_ERROR_HINTS = "{5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'}"
+
 TESTS_SCRIPT = """const body = res.getBody();
 if (body && typeof body === 'object' && body.error) {
-  const hints = {5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'};
+  const hints = __VK_ERROR_HINTS__;
   const e = body.error;
   const hint = hints[e.error_code] ? ` — ${hints[e.error_code]}` : '';
   test(`VK error ${e.error_code}${hint}: ${e.error_msg}`, () => {
@@ -328,7 +333,26 @@ if (body && typeof body === 'object' && body.error) {
   test('VK API: без ошибок', () => {
     expect(body && body.error).to.not.exist;
   });
-}"""
+}""".replace("__VK_ERROR_HINTS__", VK_ERROR_HINTS)
+
+
+VAR_PATTERN = re.compile(r"\{\{\s*([^{}\s][^{}]*?)\s*\}\}")
+
+
+def space_var(value):
+    return VAR_PATTERN.sub(r"{{ \1 }}", value)
+
+
+def compact_var(value):
+    return VAR_PATTERN.sub(r"{{\1}}", value)
+
+
+def as_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return str(value)
 
 
 DOCS_MD = """# VK API

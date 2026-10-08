@@ -1,7 +1,7 @@
 import pathlib
 import re
 
-from core import require_yaml, to_yaml
+from core import as_text, require_yaml, to_yaml
 from formats import FormatSpec, build_collection
 
 TO_YAAK = re.compile(r"\{\{(\w+)\}\}")
@@ -14,14 +14,6 @@ def _yak(value):
 
 def _unyak(value):
     return FROM_YAAK.sub(lambda m: "{{" + m.group(1) + "}}", value)
-
-
-def _text(value):
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    return str(value)
 
 
 def yaak_resources(collection):
@@ -124,19 +116,19 @@ def load_yaak(out):
         children = [r for r in requests if r.get("folderId") == folder.get("id")]
         items.append(
             {
-                "info": {"name": _text(folder.get("name")), "type": "folder", "description": folder.get("description")},
+                "info": {"name": as_text(folder.get("name")), "type": "folder", "description": folder.get("description")},
                 "request": {"auth": "inherit"},
                 "items": [
                     {
-                        "info": {"name": _text(r.get("name")), "type": "http", "description": r.get("description")},
+                        "info": {"name": as_text(r.get("name")), "type": "http", "description": r.get("description")},
                         "http": {
                             "method": r.get("method", "POST"),
-                            "url": _unyak(_text(r.get("url"))),
+                            "url": _unyak(as_text(r.get("url"))),
                             "auth": "inherit",
                             "body": {
                                 "type": "form-urlencoded",
                                 "data": [
-                                    {"name": p["name"], "value": _unyak(_text(p.get("value"))), **({"disabled": True} if not p.get("enabled", True) else {})}
+                                    {"name": p["name"], "value": _unyak(as_text(p.get("value"))), **({"disabled": True} if not p.get("enabled", True) else {})}
                                     for p in (r.get("body") or {}).get("form", [])
                                 ],
                             },
@@ -152,14 +144,14 @@ def load_yaak(out):
     for env in [d for d in docs if d.get("model") == "environment"]:
         envs.append(
             {
-                "name": _text(env.get("name")),
-                "variables": [{"name": v["name"], "value": _text(v.get("value"))} for v in env.get("variables", [])],
+                "name": as_text(env.get("name")),
+                "variables": [{"name": v["name"], "value": as_text(v.get("value"))} for v in env.get("variables", [])],
             }
         )
     return {
         "opencollection": "1.0.0",
-        "info": {"name": _text(workspace.get("name")), "description": workspace.get("description", "")},
-        "request": {"auth": {"type": "bearer", "token": _unyak(_text((workspace.get("authentication") or {}).get("token")))}},
+        "info": {"name": as_text(workspace.get("name")), "description": workspace.get("description", "")},
+        "request": {"auth": {"type": "bearer", "token": _unyak(as_text((workspace.get("authentication") or {}).get("token")))}},
         "config": {"environments": envs},
         "items": items,
         "docs": workspace.get("description", ""),
@@ -196,7 +188,6 @@ YAAK_SPEC = FormatSpec(
     name="yaak",
     default_out="dist/yaak/vk-api",
     stats_keys=("folders", "requests"),
-    model_based=True,
     build=build_collection,
     write=write_yaak,
     supports_merge=True,

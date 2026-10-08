@@ -1,12 +1,11 @@
 import json
 import pathlib
 
+from core import VK_ERROR_HINTS
 from formats import FormatSpec, build_collection
 
 INHERIT = {"authType": "inherit", "authActive": True}
 CONTENT_TYPES = {"form-urlencoded": "application/x-www-form-urlencoded"}
-
-VK_ERROR_HINTS = "{5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'}"
 
 HOPPSCOTCH_TEST_SCRIPT = f"""const body = pw.response.body;
 if (body && typeof body === 'object' && body.error) {{
@@ -122,7 +121,6 @@ HOPPSCOTCH_SPEC = FormatSpec(
     name="hoppscotch",
     default_out="dist/hoppscotch",
     stats_keys=("folders", "requests"),
-    model_based=True,
     build=build_collection,
     write=write_hoppscotch,
     matches=matches,

@@ -31,6 +31,8 @@ def main():
     parser.add_argument("path", type=pathlib.Path, help="bundled .yaml, tree directory, or postman .json file")
     parser.add_argument("--schema", type=pathlib.Path, default=None, help="local schema override (opencollection)")
     args = parser.parse_args()
+    if not args.path.exists():
+        parser.error(f"path not found: {args.path}")
     spec = sniff_spec(args.path)
     if spec.name == "postman":
         name = args.path.name

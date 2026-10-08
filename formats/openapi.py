@@ -237,7 +237,6 @@ OPENAPI_SPEC = FormatSpec(
     name="openapi",
     default_out="dist/openapi/vk-api.yaml",
     stats_keys=("operations", "schemas"),
-    model_based=False,
     build=lambda ctx: build_openapi(ctx.schema_dir, ctx.api_version, ctx.name, ctx.descriptions, ctx.include_all),
     write=write_openapi,
     matches=matches,

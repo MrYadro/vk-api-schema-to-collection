@@ -33,11 +33,6 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(FORMATS["tree"].stats_keys, ("folders", "requests"))
         self.assertEqual(FORMATS["openapi"].stats_keys, ("operations", "schemas"))
 
-    def test_model_based_flags(self):
-        for name in ("tree", "bundled", "postman", "postman-v3"):
-            self.assertTrue(FORMATS[name].model_based, name)
-        self.assertFalse(FORMATS["openapi"].model_based)
-
     def test_spec_names_match_keys(self):
         for key, spec in FORMATS.items():
             self.assertEqual(spec.name, key)

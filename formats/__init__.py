@@ -18,7 +18,6 @@ class FormatSpec:
     name: str
     default_out: str
     stats_keys: tuple
-    model_based: bool
     build: object
     write: object
     supports_merge: bool = False

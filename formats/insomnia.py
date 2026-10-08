@@ -1,12 +1,8 @@
 import json
 import pathlib
-import re
 
+from core import VK_ERROR_HINTS, space_var
 from formats import FormatSpec, build_collection
-
-VAR_PATTERN = re.compile(r"\{\{\s*([^{}\s][^{}]*?)\s*\}\}")
-
-VK_ERROR_HINTS = "{5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'}"
 
 INSOMNIA_TEST_SCRIPT = f"""const body = insomnia.response.json();
 if (body && typeof body === 'object' && body.error) {{
@@ -23,14 +19,10 @@ if (body && typeof body === 'object' && body.error) {{
 }}"""
 
 
-def _var(value):
-    return VAR_PATTERN.sub(r"{{ \1 }}", value)
-
-
 def _params(rows):
     out = []
     for i, r in enumerate(rows):
-        param = {"id": f"__P_{i}__", "name": r["name"], "value": _var(r.get("value", ""))}
+        param = {"id": f"__P_{i}__", "name": r["name"], "value": space_var(r.get("value", ""))}
         if r.get("description"):
             param["description"] = r["description"]
         if r.get("disabled"):
@@ -43,7 +35,7 @@ def to_insomnia(collection):
     resources = [
         {"_id": "__WORKSPACE_ID__", "_type": "workspace", "name": collection["info"]["name"], "scope": "collection"},
     ]
-    for env in collection.get("config", {}).get("environments", []):
+    for i, env in enumerate(collection.get("config", {}).get("environments", []), start=1):
         data = {v["name"]: v.get("value", "") for v in env.get("variables", [])}
         kv = [
             {"id": f"__KVP_{i}__", "name": v["name"], "value": v.get("value", ""), "type": "secret" if v.get("secret") else "str", "enabled": True}
@@ -51,7 +43,7 @@ def to_insomnia(collection):
         ]
         resources.append(
             {
-                "_id": "__ENV_1__",
+                "_id": f"__ENV_{i}__",
                 "_type": "environment",
                 "parentId": "__BASE_ENVIRONMENT_ID__",
                 "name": env["name"],
@@ -70,7 +62,7 @@ def to_insomnia(collection):
             "description": collection.get("docs") or "",
             "metaSortKey": 0,
             "afterResponseScript": INSOMNIA_TEST_SCRIPT,
-            "authentication": {"type": "bearer", "token": _var(collection["request"]["auth"]["token"]), "prefix": ""},
+            "authentication": {"type": "bearer", "token": space_var(collection["request"]["auth"]["token"]), "prefix": ""},
         }
     )
     for i, folder in enumerate(collection.get("items", []), start=1):
@@ -93,7 +85,7 @@ def to_insomnia(collection):
                     "parentId": f"__GRP_{i}__",
                     "name": req["info"]["name"],
                     "method": http["method"],
-                    "url": _var(http["url"]),
+                    "url": space_var(http["url"]),
                     "body": {"mimeType": "application/x-www-form-urlencoded", "params": _params(http.get("body", {}).get("data", []))},
                     "description": req.get("docs") or req["info"].get("description") or "",
                     "metaSortKey": j * 1000,
@@ -125,7 +117,6 @@ INSOMNIA_SPEC = FormatSpec(
     name="insomnia",
     default_out="dist/insomnia/vk-api.insomnia.json",
     stats_keys=("folders", "requests"),
-    model_based=True,
     build=build_collection,
     write=write_insomnia,
     matches=matches,

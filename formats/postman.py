@@ -3,7 +3,7 @@ import pathlib
 import uuid
 
 import core
-from core import SAFE_FILENAME, jsonschema_validator, load_document
+from core import SAFE_FILENAME, VK_ERROR_HINTS, jsonschema_validator, load_document
 from formats import FormatSpec, build_collection
 
 POSTMAN_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -12,7 +12,7 @@ POSTMAN_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/MrYadro/v
 POSTMAN_TEST_SCRIPT = """let body = null;
 try { body = pm.response.json(); } catch (err) {}
 if (body && typeof body === 'object' && body.error) {
-  const hints = {5: 'невалидный или истёкший токен', 6: 'слишком много запросов в секунду', 7: 'нет права доступа (scope)', 15: 'доступ к методу запрещён', 18: 'страница не найдена или удалена', 27: 'нет прав на это сообщество', 29: 'достигнут дневной лимит метода', 100: 'неверный параметр', 113: 'неверное значение параметра', 1200: 'приложение в тестовом режиме'};
+  const hints = __VK_ERROR_HINTS__;
   const e = body.error;
   const hint = hints[e.error_code] ? ` — ${hints[e.error_code]}` : '';
   pm.test(`VK error ${e.error_code}${hint}: ${e.error_msg}`, () => {
@@ -22,11 +22,11 @@ if (body && typeof body === 'object' && body.error) {
   pm.test('VK API: без ошибок', () => {
     pm.expect(body && body.error).to.not.exist;
   });
-}"""
+}""".replace("__VK_ERROR_HINTS__", VK_ERROR_HINTS)
 
 
 def postman_id(info):
-    return str(uuid.uuid5(POSTMAN_NAMESPACE, f"{info.get('name', '')}/{info.get('version', '')}"))
+    return str(uuid.uuid5(POSTMAN_NAMESPACE, info.get("name", "")))
 
 
 def postman_param(row):
@@ -194,7 +194,6 @@ POSTMAN_SPEC = FormatSpec(
     name="postman",
     default_out="dist/postman/vk-api.postman_collection.json",
     stats_keys=("folders", "requests"),
-    model_based=True,
     build=build_collection,
     write=write_postman,
     matches=matches,

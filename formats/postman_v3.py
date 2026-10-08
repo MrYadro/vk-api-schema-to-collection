@@ -12,7 +12,7 @@ POSTMAN_V3_KIND_REQUEST = "http-request"
 
 
 def postman_v3_auth_id(info):
-    return str(uuid.uuid5(postman.POSTMAN_NAMESPACE, f"v3-auth/{info.get('name', '')}/{info.get('version', '')}"))
+    return str(uuid.uuid5(postman.POSTMAN_NAMESPACE, f"v3-auth/{info.get('name', '')}"))
 
 
 def postman_v3_definition(collection):
@@ -269,7 +269,6 @@ POSTMAN_V3_SPEC = FormatSpec(
     name="postman-v3",
     default_out="dist/postman/vk-api-local",
     stats_keys=("folders", "requests"),
-    model_based=True,
     build=build_collection,
     write=_write,
     supports_merge=True,

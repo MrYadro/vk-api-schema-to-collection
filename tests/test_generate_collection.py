@@ -107,6 +107,8 @@ class TestToPostman(unittest.TestCase):
         self.assertEqual(id1, id2)
         other = json.loads(json.dumps(COLLECTION))
         other["info"]["version"] = "5.200 (2026-09-16)"
+        self.assertEqual(id1, postman.to_postman(other)["info"]["_postman_id"])
+        other["info"]["name"] = "Other"
         self.assertNotEqual(id1, postman.to_postman(other)["info"]["_postman_id"])
 
     def test_collection_auth_bearer(self):
